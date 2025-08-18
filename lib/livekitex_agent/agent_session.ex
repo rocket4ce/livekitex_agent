@@ -33,7 +33,8 @@ defmodule LivekitexAgent.AgentSession do
     :metrics,
     :user_data,
     :started_at,
-    :audio_buffer
+    :audio_buffer,
+    :input_audio_buffer
   ]
 
   @type session_state :: :idle | :listening | :processing | :speaking | :interrupted | :stopped
@@ -182,11 +183,19 @@ defmodule LivekitexAgent.AgentSession do
       metrics: init_metrics(),
       user_data: %{},
       started_at: DateTime.utc_now(),
-      audio_buffer: []
+      audio_buffer: [],
+      input_audio_buffer: []
     }
 
     Logger.info("Agent session started: #{session.session_id}")
     emit_event(session, :session_started, %{session_id: session.session_id})
+
+    # Start VAD/STT/TTS plugin processes if configured with module & opts
+    session =
+      session
+      |> maybe_start_vad(agent.vad_config)
+      |> maybe_start_stt(agent.stt_config)
+      |> maybe_start_tts(agent.tts_config)
 
     # Optionally start realtime client if :realtime_config is provided
     case Keyword.get(opts, :realtime_config) do
@@ -207,6 +216,14 @@ defmodule LivekitexAgent.AgentSession do
 
     # Update state to listening if idle
     session = if session.state == :idle, do: %{session | state: :listening}, else: session
+
+    # Route audio to VAD if present
+    if session.vad_client do
+      send(session.vad_client, {:process_audio, audio_data})
+    end
+
+    # Buffer input audio for potential utterance assembly (reverse order for O(1) prepend)
+    session = %{session | input_audio_buffer: [audio_data | session.input_audio_buffer]}
 
     # Process audio through STT if available
     case session.stt_client do
@@ -410,12 +427,48 @@ defmodule LivekitexAgent.AgentSession do
   end
 
   @impl true
+  def handle_info({:vad_event, :speech_start}, session) do
+    emit_event(session, :vad_speech_start, %{})
+    {:noreply, %{session | state: :listening}}
+  end
+
+  @impl true
+  def handle_info({:vad_event, :speech_end}, session) do
+    emit_event(session, :vad_speech_end, %{})
+
+    # If using realtime server, commit the input buffer and request a response
+    if session.realtime_client do
+      LivekitexAgent.RealtimeWSClient.commit_input(session.realtime_client)
+      LivekitexAgent.RealtimeWSClient.request_response(session.realtime_client)
+      {:noreply, session}
+    else
+      # Otherwise, hand the buffered audio to STT as a complete utterance
+      case session.stt_client do
+        nil ->
+          {:noreply, %{session | audio_buffer: []}}
+
+        stt ->
+          audio = IO.iodata_to_binary(Enum.reverse(session.input_audio_buffer))
+          send(stt, {:process_utterance, audio})
+          {:noreply, %{session | input_audio_buffer: []}}
+      end
+    end
+  end
+
+  @impl true
   def handle_info({:tts_complete, audio_data}, session) do
     Logger.info("TTS synthesis complete")
     emit_event(session, :tts_complete, %{audio_size: byte_size(audio_data)})
 
     session = %{session | state: :idle}
     {:noreply, session}
+  end
+
+  @impl true
+  def handle_info({:tts_audio, chunk}, session) when is_binary(chunk) do
+    emit_event(session, :tts_audio, %{size: byte_size(chunk)})
+    # Buffer for playback (shared buffer used for realtime audio as well)
+    {:noreply, %{session | audio_buffer: [IO.iodata_to_binary([session.audio_buffer, chunk])]}}
   end
 
   @impl true
@@ -438,6 +491,55 @@ defmodule LivekitexAgent.AgentSession do
   end
 
   # Private functions
+
+  # Start plugin helpers
+  defp maybe_start_vad(session, %{} = cfg) do
+    cond do
+      session.vad_client ->
+        session
+
+      is_atom(cfg[:module]) ->
+        {:ok, pid} = cfg.module.start_link(parent: self(), opts: cfg[:opts] || [])
+        %{session | vad_client: pid}
+
+      true ->
+        session
+    end
+  end
+
+  defp maybe_start_vad(session, _), do: session
+
+  defp maybe_start_stt(session, %{} = cfg) do
+    cond do
+      session.stt_client ->
+        session
+
+      is_atom(cfg[:module]) ->
+        {:ok, pid} = cfg.module.start_link(parent: self(), opts: cfg[:opts] || [])
+        %{session | stt_client: pid}
+
+      true ->
+        session
+    end
+  end
+
+  defp maybe_start_stt(session, _), do: session
+
+  defp maybe_start_tts(session, %{} = cfg) do
+    cond do
+      session.tts_client ->
+        session
+
+      is_atom(cfg[:module]) ->
+        {:ok, pid} = cfg.module.start_link(parent: self(), opts: cfg[:opts] || [])
+        %{session | tts_client: pid}
+
+      true ->
+        session
+    end
+  end
+
+  defp maybe_start_tts(session, _), do: session
 
   defp generate_session_id do
     :crypto.strong_rand_bytes(12) |> Base.encode16(case: :lower)
@@ -580,7 +682,7 @@ defmodule LivekitexAgent.AgentSession do
 
       String.ends_with?(type, ".completed") ->
         emit_event(session, :response_completed, event)
-        # Play any buffered audio if present (macOS afplay)
+        # Play any buffered audio output if present (macOS afplay)
         case session.audio_buffer do
           [] ->
             :ok

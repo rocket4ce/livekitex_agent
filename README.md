@@ -146,6 +146,123 @@ El cliente soporta por defecto eventos tipo:
 
 Audio en macOS: `LivekitexAgent.AudioSink` reproduce PCM16 bufferizado usando `afplay` al completar la respuesta.
 
+## STT/VAD/TTS enchufables (plug-ins)
+
+La sesión soporta componentes de voz enchufables mediante tres behaviours:
+
+- `LivekitexAgent.VADClient` (VAD): recibe `{:process_audio, pcm16}` y emite `{:vad_event, :speech_start | :speech_end}`.
+- `LivekitexAgent.STTClient` (STT): puede recibir audio contínuo con `{:process_audio, pcm16}` y/o el utterance final con `{:process_utterance, iodata}`; debe devolver `{:stt_result, text}`.
+- `LivekitexAgent.TTSClient` (TTS): recibe `{:synthesize, text}` (y `:stop` opcional), puede emitir `{:tts_audio, chunk}` y/o `{:tts_complete, pcm16}`.
+
+Al iniciar la sesión, si el `agent` trae `stt_config`/`tts_config`/`vad_config` con `module` y `opts`, el `AgentSession` arrancará esos procesos automáticamente y los cableará.
+
+### VAD por defecto (energy-based)
+
+Incluimos un VAD sencillo por energía RMS:
+
+```elixir
+agent = LivekitexAgent.Agent.new(
+  instructions: "Eres un asistente de voz útil.",
+  vad_config: %{module: LivekitexAgent.SimpleEnergyVAD, opts: [sample_rate: 16_000]}
+)
+
+{:ok, session} = LivekitexAgent.AgentSession.start_link(agent: agent)
+
+# Envía audio PCM16 mono 16kHz; al detectar :speech_end, se manda utterance a STT si existe,
+# o si tienes Realtime activo, se hace commit+response automático.
+LivekitexAgent.AgentSession.stream_audio(session, pcm16_chunk)
+```
+
+### Enchufar tu propio STT
+
+Implementa el behaviour y emite `{:stt_result, text}` a la sesión:
+
+```elixir
+defmodule MySTT do
+  use GenServer
+  @behaviour LivekitexAgent.STTClient
+
+  def start_link(parent: parent, opts: opts), do: GenServer.start_link(__MODULE__, {parent, opts})
+  def init({parent, opts}), do: {:ok, %{parent: parent, opts: opts}}
+
+  def handle_info({:process_utterance, pcm16}, state) do
+    text = transcribe_with_provider(pcm16, state.opts)
+    send(state.parent, {:stt_result, text})
+    {:noreply, state}
+  end
+end
+
+agent = LivekitexAgent.Agent.new(
+  stt_config: %{module: MySTT, opts: [language: "es"]},
+  vad_config: %{module: LivekitexAgent.SimpleEnergyVAD}
+)
+```
+
+### Enchufar tu propio TTS
+
+```elixir
+defmodule MyTTS do
+  use GenServer
+  @behaviour LivekitexAgent.TTSClient
+
+  def start_link(parent: parent, opts: opts), do: GenServer.start_link(__MODULE__, {parent, opts})
+  def init({parent, opts}), do: {:ok, %{parent: parent, opts: opts}}
+
+  def handle_info({:synthesize, text}, state) do
+    pcm16 = synth_with_provider(text, state.opts)
+    send(state.parent, {:tts_complete, pcm16})
+    {:noreply, state}
+  end
+end
+
+agent = LivekitexAgent.Agent.new(
+  tts_config: %{module: MyTTS, opts: [voice: "es/alloy"]}
+)
+```
+
+### Realtime WS + VAD (commit automático)
+
+```elixir
+agent = LivekitexAgent.Agent.new(
+  instructions: "Eres un asistente de voz.",
+  vad_config: %{module: LivekitexAgent.SimpleEnergyVAD}
+)
+
+rt_cfg = %{
+  url: System.get_env("OAI_REALTIME_URL") ||
+         "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
+  api_key: System.get_env("OPENAI_API_KEY"),
+  log_frames: true
+}
+
+{:ok, session} = LivekitexAgent.AgentSession.start_link(agent: agent, realtime_config: rt_cfg)
+
+# Streamea audio; el VAD hará commit y pedirá respuesta cuando detecte fin de turno.
+LivekitexAgent.AgentSession.stream_audio(session, pcm16_chunk)
+```
+
+Requisitos de audio: PCM16 mono 16 kHz. Si tu fuente no es 16 kHz, conviértela antes de enviar.
+
+## Ejemplos reales (runnable)
+
+- `examples/minimal_realtime_assistant.exs`: Asistente mínimo en español usando Realtime WS.
+  - Variables: `OPENAI_API_KEY` y opcional `OAI_REALTIME_URL`.
+  - Ejecutar:
+
+```bash
+mix run examples/minimal_realtime_assistant.exs
+```
+
+- `examples/push_to_talk.exs`: CLI “push-to-talk” que streamea un WAV (PCM16 16kHz mono) y hace commit manual.
+  - Comandos: `start ./sample.wav`, `commit`, `text Hola`, `cancel`, `quit`.
+  - Ejecutar:
+
+```bash
+mix run examples/push_to_talk.exs
+```
+
+Sugerencia: usa `event_callbacks` de `AgentSession` para imprimir deltas de transcripción/respuesta o publicar métricas.
+
 ## Workers y jobs
 
 Configurar un worker y supervisor:
