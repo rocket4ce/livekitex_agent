@@ -1,1 +1,1 @@
-{"servers":{"MCP_DOCKER":{"command":"docker","args":["mcp","gateway","run"],"type":"stdio"}}}
+{"servers":{"phoenix":{"type":"stdio","command":"/Users/rocket4ce/sites/elixir/nvivo/mcp-proxy","args":["http://localhost:4000/tidewave/mcp"]},"MCP_DOCKER":{"command":"docker","args":["mcp","gateway","run"],"type":"stdio"}},"inputs":[]}
