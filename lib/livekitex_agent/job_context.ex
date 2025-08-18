@@ -252,25 +252,18 @@ defmodule LivekitexAgent.JobContext do
   def handle_call({:start_task, task_name, task_fun}, _from, job_context) do
     case Map.get(job_context.tasks, task_name) do
       nil ->
-        task_pid = Task.start(task_fun)
+        {:ok, pid} = Task.start(task_fun)
 
-        case task_pid do
-          {:ok, pid} ->
-            tasks =
-              Map.put(job_context.tasks, task_name, %{
-                pid: pid,
-                started_at: DateTime.utc_now(),
-                status: :running
-              })
+        tasks =
+          Map.put(job_context.tasks, task_name, %{
+            pid: pid,
+            started_at: DateTime.utc_now(),
+            status: :running
+          })
 
-            job_context = %{job_context | tasks: tasks}
-            log_info(job_context, "Task started: #{task_name}")
-            {:reply, {:ok, pid}, job_context}
-
-          {:error, reason} ->
-            log_error(job_context, "Failed to start task #{task_name}: #{inspect(reason)}")
-            {:reply, {:error, reason}, job_context}
-        end
+        job_context = %{job_context | tasks: tasks}
+        log_info(job_context, "Task started: #{task_name}")
+        {:reply, {:ok, pid}, job_context}
 
       _existing ->
         {:reply, {:error, :already_exists}, job_context}
