@@ -416,11 +416,11 @@ defmodule LivekitexAgent.AgentSession do
       tool_config ->
         # Create run context
         run_context =
-          LivekitexAgent.RunContext.new(%{
+          LivekitexAgent.RunContext.new(
             session: self(),
             function_call: %{name: tool_name, arguments: args},
             user_data: session.user_data
-          })
+          )
 
         # Execute tool in separate process
         Task.start(fn ->
