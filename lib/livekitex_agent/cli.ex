@@ -359,9 +359,6 @@ defmodule LivekitexAgent.CLI do
       {:error, reason} ->
         Logger.error("Failed to load config file #{file_path}: #{inspect(reason)}")
         %{}
-
-      _ ->
-        %{}
     end
   end
 
