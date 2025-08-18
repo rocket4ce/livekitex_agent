@@ -29,25 +29,25 @@ defmodule LivekitexAgent.MixProject do
   defp deps do
     [
       # JSON encoding/decoding
-      {:jason, "~> 1.4"},
+      {:jason, "~>  1.4.4"},
 
       # HTTP client (for LiveKit API and tool integrations)
-      {:hackney, "~> 1.18"},
-      {:httpoison, "~> 2.0"},
+      {:hackney, "~> 1.25.0"},
+      {:httpoison, "~>  2.2.3"},
 
       # WebSocket client (for LiveKit connection)
-      {:websockex, "~> 0.4"},
+      {:websockex, "~> 0.4.3"},
 
       # Time and date utilities
-      {:timex, "~> 3.7"},
+      {:timex, "~>  3.7.13"},
 
       # Configuration and environment
-      {:ex_doc, "~> 0.29", only: :dev, runtime: false},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.2", only: [:dev], runtime: false},
+      {:ex_doc, "~>  0.38.3", only: :dev, runtime: false},
+      {:credo, "~> 1.7.12", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4.6", only: [:dev], runtime: false},
 
       # Testing
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.2.0", only: :test}
     ]
   end
 
