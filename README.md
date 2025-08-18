@@ -1,35 +1,26 @@
 # LivekitexAgent
 
-**TODO: Add description**
-
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `livekitex_agent` to your list of dependencies in `mix.exs`:
-
-```elixir
-def deps do
-  [
-    {:livekitex_agent, "~> 0.1.0"}
-  ]
-end
-```
-# LivekitexAgent
-
-An Elixir library that replicates LiveKit Agents functionality for voice agents, providing a comprehensive suite of tools for building conversational AI applications.
+An Elixir library that replicates LiveKit Agents functionality for voice agents. It provides building blocks for real‑time conversational AI: agents and sessions, function tools, workers, job/run contexts, and a Realtime WebSocket client for low‑latency audio conversations.
 
 ## Features
 
-- **Agent Management**: Create and configure voice agents with instructions, tools, and behavioral settings
-- **Session Handling**: Manage real-time agent sessions with speech processing and conversation flow
-- **Job Context**: Handle job execution with participant management and async task coordination
-- **Worker Management**: Configure and run agent workers with load balancing and health monitoring
-- **Function Tools**: Define and execute LLM-callable functions with automatic schema generation
-- **CLI Interface**: Command-line tools for running agents in development and production modes
+- Agent config: instructions, tools, components (LLM/STT/TTS/VAD placeholders)
+- Agent sessions: conversation state, turns, interruptions, event callbacks
+- Function tools: register functions, validate args, generate OpenAI function schemas
+- Job/Run contexts: participants, tasks, logging; execution context for tools
+- Workers: options, balancing, manager/supervisor, health scaffolding
+- CLI: dev/prod start, health checks, config file support
+- Realtime WebSocket (audio): stream PCM16 audio, send text, receive streamed responses, basic audio playback on macOS
+
+## Requirements
+
+- Elixir ~> 1.12
+- macOS for built‑in audio playback via `afplay` (optional)
+- Optional: OpenAI API key for Realtime via WebSocket
 
 ## Installation
 
-Add `livekitex_agent` to your list of dependencies in `mix.exs`:
+Add to `mix.exs`:
 
 ```elixir
 def deps do
@@ -39,42 +30,51 @@ def deps do
 end
 ```
 
-Then run:
+Install deps:
 
 ```bash
 mix deps.get
 ```
 
-## Quick Start
+## Quick start
 
-### 1. Create an Agent
+### 1) Create an agent
 
 ```elixir
-# Create a voice agent with basic configuration
-agent = LivekitexAgent.Agent.new([
+agent = LivekitexAgent.Agent.new(
   instructions: "You are a helpful voice assistant. Be concise and friendly.",
-  tools: [:get_weather, :add_numbers, :search_web],
+  tools: [:get_weather, :add_numbers],
   agent_id: "my_voice_agent"
-])
+)
 ```
 
-### 2. Start an Agent Session
+### 2) Start a session and send text
 
 ```elixir
-# Start a session for real-time interactions
-{:ok, session_pid} = LivekitexAgent.AgentSession.start_link([
+{:ok, session} = LivekitexAgent.AgentSession.start_link(
   agent: agent,
   event_callbacks: %{
-    session_started: &handle_session_started/2,
-    text_received: &handle_text_received/2
+    session_started: fn _evt, data -> IO.inspect(data, label: "session_started") end,
+    text_received: fn _evt, data -> IO.inspect(data, label: "text_received") end
   }
-])
+)
 
-# Process user input
-LivekitexAgent.AgentSession.process_text(session_pid, "What's the weather like?")
+LivekitexAgent.AgentSession.process_text(session, "What's the weather like in Madrid?")
 ```
 
-### 3. Define Function Tools
+### 3) Register and use function tools
+
+Option A: Register explicit tool definitions (see `LivekitexAgent.ExampleTools`):
+
+```elixir
+tools = LivekitexAgent.ExampleTools.get_tools()
+Enum.each(tools, fn {_name, defn} -> LivekitexAgent.ToolRegistry.register(defn) end)
+
+# Execute a tool
+{:ok, result} = LivekitexAgent.FunctionTool.execute_tool("get_weather", %{"location" => "Madrid"})
+```
+
+Option B: Macro‑based tools with `use LivekitexAgent.FunctionTool` and `@tool`:
 
 ```elixir
 defmodule MyTools do
@@ -82,11 +82,9 @@ defmodule MyTools do
 
   @tool "Get weather information for a location"
   @spec get_weather(String.t()) :: String.t()
-  def get_weather(location) do
-    "Weather in #{location}: Sunny, 25°C"
-  end
+  def get_weather(location), do: "Weather in #{location}: Sunny, 25°C"
 
-  @tool "Search for information with context"
+  @tool "Search with context"
   @spec search_web(String.t(), LivekitexAgent.RunContext.t()) :: String.t()
   def search_web(query, context) do
     LivekitexAgent.RunContext.log_info(context, "Searching: #{query}")
@@ -94,121 +92,124 @@ defmodule MyTools do
   end
 end
 
-# Register the tools
 LivekitexAgent.FunctionTool.register_module(MyTools)
 ```
 
-### 4. Configure and Start a Worker
+Convert tools to OpenAI function schema:
 
 ```elixir
-# Define job entry point
-entry_point = fn job_context ->
-  agent = LivekitexAgent.Agent.new([
-    instructions: "You are a helpful assistant"
-  ])
-
-  {:ok, session} = LivekitexAgent.AgentSession.start_link(agent: agent)
-  # Handle the session...
-end
-
-# Create worker options
-worker_options = LivekitexAgent.WorkerOptions.new([
-  entry_point: entry_point,
-  agent_name: "my_agent",
-  server_url: "wss://your-livekit-server.com",
-  api_key: "your-api-key",
-  max_concurrent_jobs: 5
-])
-
-# Start the worker
-{:ok, _pid} = LivekitexAgent.WorkerSupervisor.start_link(worker_options)
+openai_tools = LivekitexAgent.FunctionTool.get_all_tools() |> Map.values() |> LivekitexAgent.FunctionTool.to_openai_format()
 ```
 
-### 5. CLI Usage
+## Realtime conversation via WebSocket (audio + text)
+
+El módulo `LivekitexAgent.RealtimeWSClient` implementa un cliente WS para Realtime y está integrado en `AgentSession`.
+
+Variables de entorno recomendadas:
+
+- `OPENAI_API_KEY` o `OAI_API_KEY`
+- `OAI_REALTIME_URL` (opcional). Por defecto: `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`
+
+Inicio rápido:
+
+```elixir
+# Arranca una sesión con WS Realtime
+pid = LivekitexAgent.Example.start_realtime_example()
+
+# Envía texto y pide respuesta
+LivekitexAgent.AgentSession.send_text(pid, "Hola, ¿quién eres?")
+
+# Envía audio PCM16 (mono, 16kHz) y cierra turno
+LivekitexAgent.AgentSession.stream_audio(pid, pcm16_chunk)
+LivekitexAgent.AgentSession.commit_audio(pid)
+
+# Cancelar respuesta en curso
+LivekitexAgent.AgentSession.cancel_response(pid)
+```
+
+Configuración manual de Realtime al iniciar la sesión:
+
+```elixir
+rt_cfg = %{
+  url: System.get_env("OAI_REALTIME_URL"),
+  api_key: System.get_env("OPENAI_API_KEY"),
+  # opcionales: log_frames: true, client_event_names: %{...}
+}
+
+{:ok, session} = LivekitexAgent.AgentSession.start_link(agent: agent, realtime_config: rt_cfg)
+```
+
+El cliente soporta por defecto eventos tipo:
+
+- Cliente → servidor: `input_audio_buffer.append`, `input_audio_buffer.commit`, `input_text.append`, `response.create`, `response.cancel`.
+- Servidor → cliente: eventos `response.*` y deltas con campos de audio base64 comunes (`audio`, `delta`). Se decodifica a binario antes de reenviar a `AgentSession`.
+
+Audio en macOS: `LivekitexAgent.AudioSink` reproduce PCM16 bufferizado usando `afplay` al completar la respuesta.
+
+## Workers y jobs
+
+Configurar un worker y supervisor:
+
+```elixir
+entry_point = fn job ->
+  agent = LivekitexAgent.Agent.new(instructions: "You are helpful.")
+  {:ok, session} = LivekitexAgent.AgentSession.start_link(agent: agent)
+  Process.monitor(session)
+  receive do
+    {:DOWN, _ref, :process, ^session, _reason} -> :ok
+  end
+end
+
+opts = LivekitexAgent.WorkerOptions.new(
+  entry_point: entry_point,
+  agent_name: "my_agent",
+  server_url: "wss://your-livekit-server",
+  api_key: "your-api-key",
+  max_concurrent_jobs: 5
+)
+
+{:ok, _sup} = LivekitexAgent.WorkerSupervisor.start_link(opts)
+```
+
+Asignar un job (mock):
+
+```elixir
+{:ok, job_id} = LivekitexAgent.WorkerManager.assign_job(%{room: %{name: "room1"}})
+```
+
+## JobContext y RunContext
+
+JobContext:
+
+```elixir
+{:ok, job} = LivekitexAgent.JobContext.start_link(job_id: "job_123")
+LivekitexAgent.JobContext.add_participant(job, "user_1", %{name: "Alice"})
+LivekitexAgent.JobContext.start_task(job, "bg", fn -> :timer.sleep(1000) end)
+info = LivekitexAgent.JobContext.get_info(job)
+LivekitexAgent.JobContext.shutdown(job)
+```
+
+RunContext dentro de una tool:
+
+```elixir
+ctx = LivekitexAgent.RunContext.new(session: nil, function_call: %{name: "get_weather", arguments: %{"location" => "Madrid"}})
+LivekitexAgent.RunContext.log_info(ctx, "Running tool")
+```
+
+## CLI
 
 ```bash
-# Start in development mode
+# Desarrollo
 mix run -e "LivekitexAgent.CLI.main(['dev', '--hot-reload', '--log-level', 'debug'])"
 
-# Start in production mode
-mix run -e "LivekitexAgent.CLI.main(['start', '--agent-name', 'prod_agent', '--production'])"
+# Producción
+mix run -e "LivekitexAgent.CLI.main(['start', '--agent-name', 'prod_agent', '--production', '--server-url', 'wss://your-livekit'])"
 
-# Check health
+# Salud
 mix run -e "LivekitexAgent.CLI.main(['health'])"
 ```
 
-## Core Modules
-
-### LivekitexAgent.Agent
-
-The main agent configuration that encapsulates behavior, tools, and settings:
-
-- **Instructions**: Guide agent behavior
-- **Tools**: Available function tools
-- **Components**: STT, TTS, LLM, VAD configuration
-- **Settings**: Turn detection, interruption handling
-
-### LivekitexAgent.AgentSession
-
-Runtime orchestration for voice agents:
-
-- **Media Streams**: Audio, video, text I/O management
-- **Speech Processing**: STT, TTS, VAD integration
-- **Tool Execution**: Multi-step function calls
-- **Event System**: Callbacks for session events
-
-### LivekitexAgent.JobContext
-
-Job execution context and resource management:
-
-- **Room Management**: LiveKit room access
-- **Participant Handling**: User connection management
-- **Task Management**: Async task coordination
-- **Logging**: Contextual logging with job fields
-
-### LivekitexAgent.RunContext
-
-Function tool execution context:
-
-- **Session Access**: Current agent session
-- **Speech Control**: Control speech generation
-- **Function Info**: Current function call details
-- **User Data**: Session-specific data access
-
-### LivekitexAgent.WorkerOptions
-
-Worker configuration and management:
-
-- **Entry Points**: Job handling functions
-- **Load Balancing**: Load calculation and thresholds
-- **Connection Settings**: LiveKit server configuration
-- **Process Management**: Memory limits, timeouts
-
-### LivekitexAgent.FunctionTool
-
-LLM function tool system:
-
-- **Auto-discovery**: Tool registration via attributes
-- **Schema Generation**: OpenAI-compatible function schemas
-- **Parameter Handling**: Type validation and conversion
-- **Execution**: Safe tool execution with error handling
-
-## Examples
-
-See `LivekitexAgent.Example` module for comprehensive usage examples:
-
-```elixir
-# Run the complete example
-{:ok, result} = LivekitexAgent.Example.run_complete_example()
-
-# Demonstrate individual components
-LivekitexAgent.Example.demonstrate_tools()
-agent = LivekitexAgent.Example.create_simple_agent()
-```
-
-## Configuration
-
-Create a configuration file for production deployments:
+Config por archivo (JSON):
 
 ```json
 {
@@ -222,76 +223,57 @@ Create a configuration file for production deployments:
 }
 ```
 
-Load with:
-
 ```bash
 mix run -e "LivekitexAgent.CLI.main(['start', '--config-file', './config/production.json'])"
 ```
 
-## Testing
-
-Run the test suite:
+## Desarrollo y pruebas
 
 ```bash
+mix deps.get
+mix compile
 mix test
-```
-
-Run with coverage:
-
-```bash
 mix test --cover
 ```
 
-## Development
+Calidad de código (opcional):
 
-1. Clone the repository
-2. Install dependencies: `mix deps.get`
-3. Run tests: `mix test`
-4. Start development mode: `iex -S mix`
+```bash
+mix credo
+mix dialyzer
+mix docs
+```
 
-### Code Quality
-
-- **Credo**: `mix credo`
-- **Dialyzer**: `mix dialyzer`
-- **Documentation**: `mix docs`
-
-## Architecture
-
-The library follows OTP principles with supervision trees and fault tolerance:
+## Arquitectura
 
 ```
 LivekitexAgent.Application
-├── LivekitexAgent.ToolRegistry (global tool registry)
-└── LivekitexAgent.WorkerSupervisor (per worker)
-    ├── LivekitexAgent.WorkerManager (job distribution)
-    └── LivekitexAgent.HealthServer (health checks)
+├── LivekitexAgent.ToolRegistry (registro global de tools)
+└── LivekitexAgent.WorkerSupervisor (por worker)
+    ├── LivekitexAgent.WorkerManager (distribución de jobs)
+    └── LivekitexAgent.HealthServer (scaffolding de health)
 ```
 
-Each agent session runs as a supervised GenServer, and jobs are executed in isolated processes with proper error handling and resource management.
+Cada sesión de agente es un GenServer. Los jobs se ejecutan en procesos aislados y se monitorean.
 
-## Contributing
+## Módulos principales
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass (`mix test`)
-6. Run code quality checks (`mix credo`, `mix dialyzer`)
-7. Commit your changes (`git commit -am 'Add amazing feature'`)
-8. Push to the branch (`git push origin feature/amazing-feature`)
-9. Open a Pull Request
+- `LivekitexAgent.Agent`: configuración del agente
+- `LivekitexAgent.AgentSession`: ciclo de vida y eventos; integra Realtime WS opcional
+- `LivekitexAgent.RealtimeWSClient`: cliente WebSocket orientado a OpenAI Realtime
+- `LivekitexAgent.AudioSink`: reproducción simple de PCM16 (macOS)
+- `LivekitexAgent.FunctionTool`: macros/utilidades para tools
+- `LivekitexAgent.ToolRegistry`: registro global de tools
+- `LivekitexAgent.RunContext` y `LivekitexAgent.JobContext`: contextos de ejecución
+- `LivekitexAgent.WorkerOptions`, `WorkerManager`, `WorkerSupervisor`, `HealthServer`
 
-## License
+## Consejos y solución de problemas
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+- Realtime WS requiere API key si el servidor la exige. Exporta `OPENAI_API_KEY`.
+- Audio: envía PCM16 mono 16kHz. Si usas otra frecuencia, convierte o ajusta sinks.
+- macOS: `afplay` debe estar disponible para reproducción.
+- Los nombres de eventos Realtime se pueden ajustar en `realtime_config.client_event_names`.
 
-## Acknowledgments
+## Licencia
 
-- Inspired by LiveKit Agents Python library
-- Built with Elixir/OTP for fault tolerance and scalability
-- Designed for production voice AI applications
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/livekitex_agent>.
+MIT. Ver `LICENSE`.

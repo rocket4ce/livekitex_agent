@@ -19,6 +19,7 @@ defmodule LivekitexAgent.AgentSession do
   defstruct [
     :agent,
     :session_id,
+    :realtime_client,
     :llm_client,
     :tts_client,
     :stt_client,
@@ -31,7 +32,8 @@ defmodule LivekitexAgent.AgentSession do
     :state,
     :metrics,
     :user_data,
-    :started_at
+    :started_at,
+    :audio_buffer
   ]
 
   @type session_state :: :idle | :listening | :processing | :speaking | :interrupted | :stopped
@@ -40,6 +42,7 @@ defmodule LivekitexAgent.AgentSession do
           agent: LivekitexAgent.Agent.t(),
           session_id: String.t(),
           llm_client: pid() | nil,
+          realtime_client: pid() | nil,
           tts_client: pid() | nil,
           stt_client: pid() | nil,
           vad_client: pid() | nil,
@@ -51,7 +54,8 @@ defmodule LivekitexAgent.AgentSession do
           state: session_state(),
           metrics: map(),
           user_data: map(),
-          started_at: DateTime.t()
+          started_at: DateTime.t(),
+          audio_buffer: list()
         }
 
   @doc """
@@ -88,6 +92,36 @@ defmodule LivekitexAgent.AgentSession do
   """
   def process_text(session_pid, text) do
     GenServer.cast(session_pid, {:process_text, text})
+  end
+
+  @doc """
+  Send raw PCM16 audio chunk to realtime server (if configured);
+  falls back to internal STT pipeline.
+  """
+  def stream_audio(session_pid, pcm16_binary) when is_binary(pcm16_binary) do
+    GenServer.cast(session_pid, {:stream_audio, pcm16_binary})
+  end
+
+  @doc """
+  Commit audio input turn on realtime server (if configured).
+  """
+  def commit_audio(session_pid) do
+    GenServer.cast(session_pid, :commit_audio)
+  end
+
+  @doc """
+  Send a text prompt directly to realtime server and request a response (if configured);
+  otherwise routes through LLM.
+  """
+  def send_text(session_pid, text) when is_binary(text) do
+    GenServer.cast(session_pid, {:send_text, text})
+  end
+
+  @doc """
+  Cancel current realtime response (if configured).
+  """
+  def cancel_response(session_pid) do
+    GenServer.cast(session_pid, :cancel_response)
   end
 
   @doc """
@@ -134,6 +168,7 @@ defmodule LivekitexAgent.AgentSession do
     session = %__MODULE__{
       agent: agent,
       session_id: generate_session_id(),
+      realtime_client: nil,
       llm_client: Keyword.get(opts, :llm_client),
       tts_client: Keyword.get(opts, :tts_client),
       stt_client: Keyword.get(opts, :stt_client),
@@ -146,13 +181,24 @@ defmodule LivekitexAgent.AgentSession do
       state: :idle,
       metrics: init_metrics(),
       user_data: %{},
-      started_at: DateTime.utc_now()
+      started_at: DateTime.utc_now(),
+      audio_buffer: []
     }
 
     Logger.info("Agent session started: #{session.session_id}")
     emit_event(session, :session_started, %{session_id: session.session_id})
 
-    {:ok, session}
+    # Optionally start realtime client if :realtime_config is provided
+    case Keyword.get(opts, :realtime_config) do
+      %{} = rt_cfg ->
+        {:ok, rt_pid} =
+          LivekitexAgent.RealtimeWSClient.start_link(parent: self(), config: rt_cfg)
+
+        {:ok, %{session | realtime_client: rt_pid}}
+
+      _ ->
+        {:ok, session}
+    end
   end
 
   @impl true
@@ -174,6 +220,52 @@ defmodule LivekitexAgent.AgentSession do
         emit_event(session, :audio_received, %{size: byte_size(audio_data)})
         {:noreply, session}
     end
+  end
+
+  @impl true
+  def handle_cast({:stream_audio, pcm16}, session) do
+    case session.realtime_client do
+      nil ->
+        # Fallback to local audio processing
+        handle_cast({:process_audio, pcm16}, session)
+
+      rt_pid ->
+        LivekitexAgent.RealtimeWSClient.send_audio_chunk(rt_pid, pcm16)
+        emit_event(session, :audio_streamed, %{size: byte_size(pcm16)})
+        {:noreply, if(session.state == :idle, do: %{session | state: :listening}, else: session)}
+    end
+  end
+
+  @impl true
+  def handle_cast(:commit_audio, session) do
+    if session.realtime_client do
+      LivekitexAgent.RealtimeWSClient.commit_input(session.realtime_client)
+      # Ask for a server-side response
+      LivekitexAgent.RealtimeWSClient.request_response(session.realtime_client)
+    end
+
+    {:noreply, session}
+  end
+
+  @impl true
+  def handle_cast({:send_text, text}, session) do
+    case session.realtime_client do
+      nil ->
+        handle_cast({:process_text, text}, session)
+
+      rt_pid ->
+        LivekitexAgent.RealtimeWSClient.send_text(rt_pid, text)
+        {:noreply, %{session | state: :processing}}
+    end
+  end
+
+  @impl true
+  def handle_cast(:cancel_response, session) do
+    if session.realtime_client do
+      LivekitexAgent.RealtimeWSClient.cancel_response(session.realtime_client)
+    end
+
+    {:noreply, session}
   end
 
   @impl true
@@ -253,6 +345,44 @@ defmodule LivekitexAgent.AgentSession do
         # Execute tool calls
         handle_tool_calls(session, tool_calls)
     end
+  end
+
+  @impl true
+  def handle_info({:realtime_event, event}, session) do
+    # Route relevant realtime events to the proper components.
+    case event do
+      %{"type" => type} when is_binary(type) ->
+        cond do
+          String.starts_with?(type, "response.") ->
+            handle_realtime_response_event(event, session)
+
+          String.starts_with?(type, "input_audio_buffer.") ->
+            emit_event(session, :audio_ack, event)
+            {:noreply, session}
+
+          true ->
+            emit_event(session, :realtime_event, event)
+            {:noreply, session}
+        end
+
+      # Binary audio frames from server (already base64-decoded by client)
+      %{"type" => "binary", "payload" => bin} when is_binary(bin) ->
+        # Buffer audio and attempt playback in small chunks
+        # For simplicity, append; real implementation should chunk by duration
+        session = %{session | audio_buffer: [IO.iodata_to_binary([session.audio_buffer, bin])]}
+        emit_event(session, :audio_output, %{size: byte_size(bin)})
+        {:noreply, session}
+
+      other ->
+        emit_event(session, :realtime_event, other)
+        {:noreply, session}
+    end
+  end
+
+  @impl true
+  def handle_info({:realtime_closed, reason}, session) do
+    emit_event(session, :realtime_closed, %{reason: inspect(reason)})
+    {:noreply, %{session | realtime_client: nil}}
   end
 
   @impl true
@@ -395,6 +525,35 @@ defmodule LivekitexAgent.AgentSession do
       tts_pid ->
         send(tts_pid, {:synthesize, response})
         emit_event(session, :speaking_started, %{text: response})
+        {:noreply, session}
+    end
+  end
+
+  defp handle_realtime_response_event(%{"type" => type} = event, session) do
+    cond do
+      String.ends_with?(type, ".delta") ->
+        # Streamed delta: could contain text or audio
+        emit_event(session, :response_delta, event)
+        {:noreply, %{session | state: :speaking}}
+
+      String.ends_with?(type, ".completed") ->
+        emit_event(session, :response_completed, event)
+        # Play any buffered audio if present (macOS afplay)
+        case session.audio_buffer do
+          [] ->
+            :ok
+
+          [pcm] when is_binary(pcm) and byte_size(pcm) > 0 ->
+            Task.start(fn -> LivekitexAgent.AudioSink.play_pcm16([pcm]) end)
+
+          chunks when is_list(chunks) ->
+            Task.start(fn -> LivekitexAgent.AudioSink.play_pcm16(chunks) end)
+        end
+
+        {:noreply, %{session | state: :idle, audio_buffer: []}}
+
+      true ->
+        emit_event(session, :response_event, event)
         {:noreply, session}
     end
   end

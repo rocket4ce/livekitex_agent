@@ -251,6 +251,50 @@ defmodule LivekitexAgent.Example do
     end
   end
 
+  @doc """
+  Minimal example to start an AgentSession with Realtime WebSocket client.
+
+  Configure env vars before running:
+    - OAI_API_KEY (or pass in opts)
+  """
+  def start_realtime_example(opts \\ []) do
+    require Logger
+
+    url =
+      Keyword.get(
+        opts,
+        :url,
+        System.get_env("OAI_REALTIME_URL") ||
+          "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17"
+      )
+
+    api_key =
+      Keyword.get(
+        opts,
+        :api_key,
+        System.get_env("OPENAI_API_KEY") || System.get_env("OAI_API_KEY")
+      )
+
+    agent =
+      LivekitexAgent.Agent.new(
+        instructions: "You are a helpful, concise, real-time voice assistant.",
+        tools: []
+      )
+
+    rt_cfg =
+      %{url: url, api_key: api_key, log_frames: true}
+
+    case LivekitexAgent.AgentSession.start_link(agent: agent, realtime_config: rt_cfg) do
+      {:ok, pid} ->
+        Logger.info("Realtime AgentSession started: #{inspect(pid)}")
+        pid
+
+      {:error, reason} ->
+        Logger.error("Failed to start realtime session: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
   # Event handlers
 
   defp handle_session_started(:session_started, data) do
