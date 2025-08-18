@@ -169,21 +169,36 @@ defmodule LivekitexAgent.RealtimeWSClient do
   end
 
   def handle_cast({:send_text, text}, state) do
-    # Some servers accept input_text.append + response.create; keep it flexible
-    append_evt = get_in(state.config, [:client_event_names, :text_append]) || "input_text.append"
+    # Prefer modern conversation.item.create shape; fall back to legacy input_text.append
+    append_evt =
+      get_in(state.config, [:client_event_names, :text_append]) ||
+        "conversation.item.create"
 
-    create_evt =
-      get_in(state.config, [:client_event_names, :response_create]) || "response.create"
+    append_event =
+      case append_evt do
+        "conversation.item.create" ->
+          %{
+            "type" => "conversation.item.create",
+            "item" => %{
+              "type" => "message",
+              "role" => "user",
+              "content" => [
+                %{"type" => "input_text", "text" => text}
+              ]
+            }
+          }
 
-    append = %{"type" => append_evt, "text" => text}
-    create = %{"type" => create_evt}
+        _ ->
+          %{"type" => append_evt, "text" => text}
+      end
 
-    maybe_log_frame(state, :out, append)
-    maybe_log_frame(state, :out, create)
+    # Log and send append frame first
+    maybe_log_frame(state, :out, append_event)
 
-    # Send as two consecutive frames
-    {:reply, [{:text, Jason.encode!(append)}, {:text, Jason.encode!(create)}],
-     %{state | pending_response: true}}
+    # Schedule a separate cast to create the response to avoid multi-frame reply issues
+    WebSockex.cast(self(), {:request_response, %{}})
+
+    {:reply, {:text, Jason.encode!(append_event)}, state}
   end
 
   def handle_cast({:request_response, extra_opts}, state) do
@@ -236,7 +251,8 @@ defmodule LivekitexAgent.RealtimeWSClient do
   defp state_after(event, state) do
     case event["type"] do
       t when is_binary(t) ->
-        if String.ends_with?(t, ".completed") do
+        if String.ends_with?(t, ".completed") or String.ends_with?(t, ".done") or
+             t == "response.done" do
           %{state | pending_response: false}
         else
           state

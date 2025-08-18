@@ -351,6 +351,21 @@ defmodule LivekitexAgent.AgentSession do
   def handle_info({:realtime_event, event}, session) do
     # Route relevant realtime events to the proper components.
     case event do
+      %{"type" => "socket.connected"} ->
+        # Initialize the remote session with our agent instructions and defaults
+        if session.realtime_client do
+          LivekitexAgent.RealtimeWSClient.send_event(session.realtime_client, %{
+            "type" => "session.update",
+            "session" => %{
+              "instructions" => session.agent.instructions,
+              "modalities" => ["audio", "text"],
+              "voice" => "alloy"
+            }
+          })
+        end
+
+        {:noreply, session}
+
       %{"type" => type} when is_binary(type) ->
         cond do
           String.starts_with?(type, "response.") ->
@@ -450,13 +465,31 @@ defmodule LivekitexAgent.AgentSession do
       nil ->
         :ok
 
-      callback_fun when is_function(callback_fun) ->
-        try do
-          callback_fun.(event_type, data)
-        rescue
-          error ->
-            Logger.error("Error in event callback for #{event_type}: #{inspect(error)}")
-        end
+      callback_fun when is_function(callback_fun, 2) ->
+        safe_invoke(callback_fun, event_type, data)
+
+      callback_fun when is_function(callback_fun, 1) ->
+        safe_invoke(fn d -> callback_fun.(d) end, data)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp safe_invoke(fun, a, b) do
+    try do
+      fun.(a, b)
+    rescue
+      error ->
+        Logger.error("Error in event callback for #{inspect(a)}: #{Exception.message(error)}")
+    end
+  end
+
+  defp safe_invoke(fun, a) do
+    try do
+      fun.(a)
+    rescue
+      error -> Logger.error("Error in event callback: #{Exception.message(error)}")
     end
   end
 
@@ -535,6 +568,15 @@ defmodule LivekitexAgent.AgentSession do
         # Streamed delta: could contain text or audio
         emit_event(session, :response_delta, event)
         {:noreply, %{session | state: :speaking}}
+
+      # Map audio transcript events to our generic callbacks
+      type == "response.audio_transcript.delta" ->
+        emit_event(session, :response_delta, event)
+        {:noreply, %{session | state: :speaking}}
+
+      type == "response.audio_transcript.done" or type == "response.done" ->
+        emit_event(session, :response_completed, event)
+        {:noreply, %{session | state: :idle}}
 
       String.ends_with?(type, ".completed") ->
         emit_event(session, :response_completed, event)

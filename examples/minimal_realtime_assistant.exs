@@ -1,23 +1,18 @@
 #!/usr/bin/env elixir
-Mix.install([
-  {:jason, "~> 1.4"}
-])
-
 # Minimal realtime voice assistant in Spanish using OpenAI Realtime via LivekitexAgent.RealtimeWSClient
+# Run with: mix run examples/minimal_realtime_assistant.exs
 # Environment:
 #   OPENAI_API_KEY or OAI_API_KEY
 #   OAI_REALTIME_URL (optional)
 
-Code.append_path("lib")
-Code.compile_file("lib/livekitex_agent.ex")
-Code.compile_file("lib/livekitex_agent/agent.ex")
-Code.compile_file("lib/livekitex_agent/agent_session.ex")
-Code.compile_file("lib/livekitex_agent/realtime_ws_client.ex")
-Code.compile_file("lib/livekitex_agent/audio_sink.ex")
-
-api_key = System.get_env("OPENAI_API_KEY") || System.get_env("OAI_API_KEY")
+api_key = System.get_env("OPENAI_API_KEY") || System.get_env("OAI_API_KEY") || ""
 url = System.get_env("OAI_REALTIME_URL") ||
         "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17"
+
+if api_key == "" do
+  IO.puts("OPENAI_API_KEY is required in your environment.")
+  System.halt(1)
+end
 
 agent = LivekitexAgent.Agent.new(
   instructions: "Eres un asistente de voz útil. Habla español.",
@@ -27,14 +22,22 @@ agent = LivekitexAgent.Agent.new(
 
 rt_cfg = %{
   url: url,
-  api_key: api_key,
+  # fuerza el header explícitamente
+  auth_header: {"Authorization", "Bearer " <> api_key},
+  beta_header: {"OpenAI-Beta", "realtime=v1"},
+  protocol_header: {"Sec-WebSocket-Protocol", "realtime"},
   log_frames: true
 }
 
 callbacks = %{
   response_delta: fn _evt, data ->
-    text = Map.get(data, "text") || Map.get(data, "delta")
-    if is_binary(text), do: IO.write(text)
+    # Print transcript deltas only; ignore raw audio binary deltas
+    cond do
+      is_binary(Map.get(data, "text")) -> IO.write(Map.get(data, "text"))
+      is_binary(Map.get(data, "delta")) and String.printable?(Map.get(data, "delta")) ->
+        IO.write(Map.get(data, "delta"))
+      true -> :ok
+    end
   end,
   response_completed: fn _evt, _data -> IO.puts("") end
 }
