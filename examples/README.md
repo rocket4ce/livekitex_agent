@@ -2,11 +2,7 @@
 
 This folder contains runnable Elixir examples that mirror the Python voice-agent examples:
 
-- push_to_talk.exs
-- weather_agent.exs
-- timed_agent_transcript.exs
-- realtime_joke_teller.exs
-- restaurant_agent.exs
+- minimal_realtime_assistant.exs
 
 Notes
 
@@ -18,6 +14,7 @@ Environment
 
 - OPENAI_API_KEY or OAI_API_KEY: API key for OpenAI Realtime (optional for Realtime examples; required to actually get responses)
 - OAI_REALTIME_URL: WebSocket URL, default: wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17
+mix run examples/minimal_realtime_assistant.exs
 
 Run
 
