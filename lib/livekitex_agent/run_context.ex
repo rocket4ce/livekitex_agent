@@ -237,32 +237,34 @@ defmodule LivekitexAgent.RunContext do
   """
   def validate(%__MODULE__{} = context, requirements \\ []) do
     Enum.reduce_while(requirements, {:ok, context}, fn requirement, acc ->
-      case requirement do
-        :session ->
-          if context.session, do: {:cont, acc}, else: {:halt, {:error, :session_required}}
-
-        :speech_handle ->
-          if context.speech_handle,
-            do: {:cont, acc},
-            else: {:halt, {:error, :speech_handle_required}}
-
-        :function_call ->
-          if context.function_call != %{},
-            do: {:cont, acc},
-            else: {:halt, {:error, :function_call_required}}
-
-        {:argument, arg_name} ->
-          if Map.has_key?(get_function_arguments(context), arg_name) do
-            {:cont, acc}
-          else
-            {:halt, {:error, {:argument_required, arg_name}}}
-          end
-
-        _ ->
-          {:halt, {:error, {:unknown_requirement, requirement}}}
-      end
+      requirement
+      |> validate_requirement(context)
+      |> to_reduce_decision(acc)
     end)
   end
+
+  defp validate_requirement(:session, context) do
+    if context.session, do: :ok, else: {:error, :session_required}
+  end
+
+  defp validate_requirement(:speech_handle, context) do
+    if context.speech_handle, do: :ok, else: {:error, :speech_handle_required}
+  end
+
+  defp validate_requirement(:function_call, context) do
+    if context.function_call != %{}, do: :ok, else: {:error, :function_call_required}
+  end
+
+  defp validate_requirement({:argument, arg_name}, context) do
+    if Map.has_key?(get_function_arguments(context), arg_name),
+      do: :ok,
+      else: {:error, {:argument_required, arg_name}}
+  end
+
+  defp validate_requirement(other, _context), do: {:error, {:unknown_requirement, other}}
+
+  defp to_reduce_decision(:ok, acc), do: {:cont, acc}
+  defp to_reduce_decision({:error, reason}, _acc), do: {:halt, {:error, reason}}
 
   @doc """
   Executes a function with proper error handling and logging.

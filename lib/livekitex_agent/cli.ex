@@ -350,22 +350,17 @@ defmodule LivekitexAgent.CLI do
   end
 
   defp load_config_file(file_path) do
-    case File.read(file_path) do
-      {:ok, content} ->
-        case Jason.decode(content) do
-          {:ok, config} ->
-            # Convert string keys to atoms for easier access
-            config
-            |> Enum.map(fn {k, v} -> {String.to_atom(k), v} end)
-            |> Enum.into(%{})
-
-          {:error, reason} ->
-            Logger.error("Failed to parse config file #{file_path}: #{reason}")
-            %{}
-        end
-
+    with {:ok, content} <- File.read(file_path),
+         {:ok, config} <- Jason.decode(content) do
+      config
+      |> Enum.map(fn {k, v} -> {String.to_atom(k), v} end)
+      |> Enum.into(%{})
+    else
       {:error, reason} ->
-        Logger.error("Failed to read config file #{file_path}: #{reason}")
+        Logger.error("Failed to load config file #{file_path}: #{inspect(reason)}")
+        %{}
+
+      _ ->
         %{}
     end
   end

@@ -358,20 +358,20 @@ defmodule LivekitexAgent.FunctionTool do
   defp validate_parameter_types(parameters, arguments) do
     # Basic type validation - would be more comprehensive in production
     Enum.reduce_while(parameters, :ok, fn param, _acc ->
-      case Map.get(arguments, param.name) do
-        nil ->
-          if param.required and param.name != "context" do
-            {:halt, {:error, {:missing_parameter, param.name}}}
-          else
-            {:cont, :ok}
-          end
+      value = Map.get(arguments, param.name)
 
-        value ->
-          if valid_type?(value, param.type) do
-            {:cont, :ok}
-          else
-            {:halt, {:error, {:invalid_type, param.name, param.type}}}
-          end
+      cond do
+        is_nil(value) and param.required and param.name != "context" ->
+          {:halt, {:error, {:missing_parameter, param.name}}}
+
+        is_nil(value) ->
+          {:cont, :ok}
+
+        valid_type?(value, param.type) ->
+          {:cont, :ok}
+
+        true ->
+          {:halt, {:error, {:invalid_type, param.name, param.type}}}
       end
     end)
   end

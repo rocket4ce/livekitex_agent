@@ -155,12 +155,12 @@ defmodule LivekitexAgent.ExampleTools do
   @doc """
   Check if a number is prime.
   """
-  @spec is_prime(integer()) :: boolean()
-  def is_prime(n) when n < 2, do: false
-  def is_prime(2), do: true
-  def is_prime(n) when rem(n, 2) == 0, do: false
+  @spec prime?(integer()) :: boolean()
+  def prime?(n) when n < 2, do: false
+  def prime?(2), do: true
+  def prime?(n) when rem(n, 2) == 0, do: false
 
-  def is_prime(n) do
+  def prime?(n) do
     limit = :math.sqrt(n) |> trunc()
     not Enum.any?(3..limit//2, fn i -> rem(n, i) == 0 end)
   end
@@ -262,11 +262,20 @@ defmodule LivekitexAgent.ExampleTools do
         arity: 1,
         parameters: [%{name: "n", type: "integer", required: true, position: 0}]
       },
-      "is_prime" => %{
-        name: "is_prime",
+      "prime?" => %{
+        name: "prime?",
         description: "Check if a number is prime",
         module: __MODULE__,
-        function: :is_prime,
+        function: :prime?,
+        arity: 1,
+        parameters: [%{name: "n", type: "integer", required: true, position: 0}]
+      },
+      # Backward-compatible alias for older callers
+      "is_prime" => %{
+        name: "prime?",
+        description: "Check if a number is prime (alias)",
+        module: __MODULE__,
+        function: :prime?,
         arity: 1,
         parameters: [%{name: "n", type: "integer", required: true, position: 0}]
       }

@@ -330,9 +330,55 @@ defmodule LivekitexAgent.AgentSession do
     end
   end
 
-  defp extract_tool_calls(_response) do
-    # TODO: Implement tool call extraction from LLM response
-    []
+  # Accepts several shapes:
+  # - Map with "tool_calls" or :tool_calls
+  # - Map with "function_call" or :function_call (single call)
+  # - OpenAI-style tool_calls: [%{"type" => "function", "function" => %{name, arguments}}]
+  # - A JSON string containing any of the above
+  # - A bare list of calls
+  defp extract_tool_calls(%{"tool_calls" => calls}), do: normalize_calls(calls)
+  defp extract_tool_calls(%{tool_calls: calls}), do: normalize_calls(calls)
+  defp extract_tool_calls(%{"function_call" => call}), do: normalize_calls([call])
+  defp extract_tool_calls(%{function_call: call}), do: normalize_calls([call])
+  defp extract_tool_calls(calls) when is_list(calls), do: normalize_calls(calls)
+
+  defp extract_tool_calls(bin) when is_binary(bin) do
+    case Jason.decode(bin) do
+      {:ok, decoded} -> extract_tool_calls(decoded)
+      _ -> []
+    end
+  end
+
+  defp extract_tool_calls(_), do: []
+
+  defp normalize_calls(calls) do
+    calls
+    |> List.wrap()
+    |> Enum.map(&normalize_tool_call/1)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp normalize_tool_call(%{"name" => name, "arguments" => args}),
+    do: %{name: to_string(name), arguments: ensure_map(args)}
+
+  defp normalize_tool_call(%{name: name, arguments: args}) when is_atom(name) or is_binary(name),
+    do: %{name: to_string(name), arguments: ensure_map(args)}
+
+  defp normalize_tool_call(%{"function" => %{"name" => name, "arguments" => args}}),
+    do: %{name: to_string(name), arguments: ensure_map(args)}
+
+  defp normalize_tool_call(%{function: %{name: name, arguments: args}}),
+    do: %{name: to_string(name), arguments: ensure_map(args)}
+
+  defp normalize_tool_call(_), do: nil
+
+  defp ensure_map(%{} = m), do: m
+
+  defp ensure_map(bin) when is_binary(bin) do
+    case Jason.decode(bin) do
+      {:ok, %{} = m} -> m
+      _ -> %{}
+    end
   end
 
   defp handle_text_response(session, response) do
