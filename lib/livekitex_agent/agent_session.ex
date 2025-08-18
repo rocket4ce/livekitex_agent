@@ -568,30 +568,24 @@ defmodule LivekitexAgent.AgentSession do
   end
 
   defp execute_tool(session, %{name: tool_name, arguments: args}) do
-    case Map.get(session.tool_registry, String.to_atom(tool_name)) do
-      nil ->
-        Logger.warning("Tool not found: #{tool_name}")
+    # Create run context for the tool execution
+    run_context =
+      LivekitexAgent.RunContext.new(
+        session: self(),
+        function_call: %{name: tool_name, arguments: args},
+        user_data: session.user_data
+      )
 
-      tool_config ->
-        # Create run context
-        run_context =
-          LivekitexAgent.RunContext.new(
-            session: self(),
-            function_call: %{name: tool_name, arguments: args},
-            user_data: session.user_data
-          )
+    # Execute via FunctionTool registry to support explicit tool definitions
+    Task.start(fn ->
+      case LivekitexAgent.FunctionTool.execute_tool(tool_name, args, run_context) do
+        {:ok, result} ->
+          send(self(), {:tool_result, tool_name, result})
 
-        # Execute tool in separate process
-        Task.start(fn ->
-          try do
-            result = apply(tool_config.module, :execute, [args, run_context])
-            send(self(), {:tool_result, tool_name, result})
-          rescue
-            error ->
-              Logger.error("Tool execution error: #{inspect(error)}")
-              send(self(), {:tool_result, tool_name, "Error: #{inspect(error)}"})
-          end
-        end)
-    end
+        {:error, reason} ->
+          Logger.error("Tool execution error: #{inspect(reason)}")
+          send(self(), {:tool_result, tool_name, "Error: #{inspect(reason)}"})
+      end
+    end)
   end
 end

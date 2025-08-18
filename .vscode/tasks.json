@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run examples compile check",
+			"type": "shell",
+			"command": "mix compile",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [
+				"$mixCompile"
+			],
+			"group": "build"
+		}
+	]
+}
