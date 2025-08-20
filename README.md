@@ -1,4 +1,5 @@
-# LivekitexAgent
+
+# LivekitexAgent BETA - NOT FOR PRODUCTION ENVIRONMENTS
 
 An Elixir library that replicates LiveKit Agents functionality for voice agents. It provides building blocks for real‑time conversational AI: agents and sessions, function tools, workers, job/run contexts, and a Realtime WebSocket client for low‑latency audio conversations.
 
