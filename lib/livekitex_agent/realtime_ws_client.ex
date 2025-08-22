@@ -181,9 +181,9 @@ defmodule LivekitexAgent.RealtimeWSClient do
     maybe_log_frame(state, :out, append)
     maybe_log_frame(state, :out, create)
 
-    # Send frames separately to avoid WebSockex.InvalidFrameError
-    # First send the append frame, then schedule the create frame
-    Process.send_after(self(), {:delayed_send, create}, 10)
+    # Send the first frame immediately, schedule the second one
+    # WebSockex cannot handle multiple frames in one reply
+    Process.send_after(self(), {:delayed_frame, Jason.encode!(create)}, 50)
     {:reply, {:text, Jason.encode!(append)}, %{state | pending_response: true}}
   end
 
@@ -226,9 +226,9 @@ defmodule LivekitexAgent.RealtimeWSClient do
   end
 
   @impl true
-  def handle_info({:delayed_send, event}, state) do
-    maybe_log_frame(state, :out, event)
-    {:reply, {:text, Jason.encode!(event)}, state}
+  def handle_info({:delayed_frame, json_frame}, state) do
+    # Send the delayed frame
+    {:reply, {:text, json_frame}, state}
   end
 
   @impl true
