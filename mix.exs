@@ -45,6 +45,7 @@ defmodule LivekitexAgent.MixProject do
       {:ex_doc, "~>  0.38.3", only: :dev, runtime: false},
       {:credo, "~> 1.7.12", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4.6", only: [:dev], runtime: false},
+      {:livekitex, "~> 0.1.34"},
 
       # Testing
       {:mox, "~> 1.2.0", only: :test}
