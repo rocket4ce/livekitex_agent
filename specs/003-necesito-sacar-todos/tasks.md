@@ -67,21 +67,6 @@
 - [ ] T034 [P] [US2] Fix unreachable clause warning in `lib/livekitex_agent/providers/openai/stt.ex` (line 281)
 - [ ] T035 [P] [US2] Fix default values warning in `lib/livekitex_agent/function_tool.ex` (line 416)
 
-#### Pre-commit Hook Implementation for User Story 2
-
-- [ ] T036 [US2] Implement pre-commit hook script in `.git-hooks/pre-commit`
-- [ ] T037 [US2] Create hook installation task `lib/mix/tasks/warnings/install_hooks.ex`
-- [ ] T038 [US2] Add hook testing and validation in installation process
-- [ ] T039 [US2] Update README.md with team setup instructions for git hooks
-
-#### Validation for User Story 2
-
-- [ ] T040 [US2] Test pre-commit hooks prevent new warnings from being committed
-- [ ] T041 [US2] Validate CI/CD pipeline integration with `--warnings-as-errors`
-- [ ] T042 [US2] Run full test suite to ensure API corrections don't break functionality
-- [ ] T043 [US2] Update progress tracking and verify Category B completion
-
-**Checkpoint**: API corrections complete, CI/CD enforcement active, regression prevention in place
 
 ---
 
@@ -127,10 +112,9 @@
 
 **Purpose**: Improvements that affect multiple user stories and long-term maintenance
 
-- [ ] T061 [P] Create comprehensive documentation in `docs/warning-resolution-progress.md`
+
 - [ ] T062 [P] Update project README.md with warning prevention setup instructions
 - [ ] T063 [P] Create developer onboarding checklist including hook installation
-- [ ] T064 Add CI/CD workflow configuration for warning enforcement in `.github/workflows/warnings.yml`
 - [ ] T065 Create monitoring and reporting for warning prevention effectiveness
 - [ ] T066 [P] Run final quickstart.md validation end-to-end
 - [ ] T067 [P] Update project quality gates documentation
