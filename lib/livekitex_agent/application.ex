@@ -83,20 +83,73 @@ defmodule LivekitexAgent.Application do
 
   # Resolve WorkerOptions for Phoenix integration
   defp resolve_worker_options do
+    start_time = System.monotonic_time(:millisecond)
+    # Ensure we get a keyword list from config
+    user_config = Application.get_env(:livekitex_agent, :default_worker_options, [])
+
     try do
-      # Ensure we get a keyword list from config
-      user_config = Application.get_env(:livekitex_agent, :default_worker_options, [])
+      # Log configuration resolution attempt with structured data
+      Logger.info("Resolving worker configuration", %{
+        event: "config_resolution_start",
+        config_source: ":livekitex_agent",
+        config_key: ":default_worker_options",
+        config_present: user_config != nil,
+        config_type: config_type_string(user_config)
+      })
 
       config = case user_config do
-        list when is_list(list) -> list
-        _ -> []
+        list when is_list(list) ->
+          Logger.debug("Configuration is valid keyword list", %{
+            event: "config_validation_success",
+            config_length: length(list),
+            config_keys: Keyword.keys(list)
+          })
+          list
+        invalid_config ->
+          Logger.warning("Invalid configuration type received, using empty defaults", %{
+            event: "config_validation_warning",
+            error_type: "invalid_config_type",
+            received_type: config_type_string(invalid_config),
+            received_value: inspect(invalid_config, limit: :infinity),
+            suggested_fix: "Ensure config is a keyword list: config :livekitex_agent, default_worker_options: [key: value]",
+            fallback_action: "using_empty_list"
+          })
+          []
       end
 
-      LivekitexAgent.WorkerOptions.from_config(config)
+      result = LivekitexAgent.WorkerOptions.from_config(config)
+
+      end_time = System.monotonic_time(:millisecond)
+      Logger.info("Configuration resolution completed successfully", %{
+        event: "config_resolution_success",
+        duration_ms: end_time - start_time,
+        worker_pool_size: result.worker_pool_size,
+        agent_name: result.agent_name,
+        timeout: result.timeout
+      })
+
+      result
     rescue
       error ->
+        end_time = System.monotonic_time(:millisecond)
+        error_type = error_type_string(error)
+
+        # Structured error logging with detailed context
+        Logger.error("Configuration resolution failed, using emergency fallback", %{
+          event: "config_resolution_failure",
+          duration_ms: end_time - start_time,
+          error_type: error_type,
+          error_message: Exception.message(error),
+          error_module: error.__struct__,
+          received_config: inspect(user_config, limit: :infinity),
+          suggested_fixes: get_config_error_suggestions(error_type),
+          fallback_status: "emergency_defaults_active",
+          impact: "Agent will start with minimal functionality"
+        })
+
+        # Also log user-friendly error message
         Logger.error("""
-        Failed to resolve WorkerOptions configuration: #{inspect(error)}
+        Failed to resolve WorkerOptions configuration: #{Exception.message(error)}
 
         This error occurs when livekitex_agent cannot initialize properly.
         To fix this:
@@ -113,13 +166,38 @@ defmodule LivekitexAgent.Application do
 
   # Create emergency fallback configuration for startup resilience
   defp create_emergency_fallback do
-    LivekitexAgent.WorkerOptions.from_config([
+    fallback_config = [
       entry_point: fn _ctx -> :ok end,
       worker_pool_size: System.schedulers_online(),
       agent_name: "emergency_fallback_agent",
       timeout: 300_000,
       max_concurrent_jobs: 1
-    ])
+    ]
+
+    Logger.warning("Creating emergency fallback configuration", %{
+      event: "emergency_fallback_creation",
+      fallback_config: fallback_config,
+      worker_pool_size: System.schedulers_online(),
+      limitations: [
+        "Basic job handling only",
+        "No custom entry point",
+        "Limited concurrent jobs",
+        "Default timeout values"
+      ],
+      recommended_action: "Fix configuration and restart for full functionality"
+    })
+
+    result = LivekitexAgent.WorkerOptions.from_config(fallback_config)
+
+    Logger.info("Emergency fallback configuration created successfully", %{
+      event: "emergency_fallback_success",
+      agent_name: result.agent_name,
+      worker_pool_size: result.worker_pool_size,
+      timeout: result.timeout,
+      status: "minimal_functionality_available"
+    })
+
+    result
   end
 
   # Post-startup initialization
@@ -373,6 +451,56 @@ defmodule LivekitexAgent.Application do
 
       _ ->
         Logger.info("Signal handlers not configured (non-Unix system)")
+    end
+  end
+
+  # Helper functions for structured logging
+
+  defp config_type_string(value) do
+    case value do
+      list when is_list(list) -> "keyword_list"
+      map when is_map(map) -> "map"
+      atom when is_atom(atom) -> "atom"
+      binary when is_binary(binary) -> "string"
+      integer when is_integer(integer) -> "integer"
+      nil -> "nil"
+      _ -> "unknown"
+    end
+  end
+
+  defp error_type_string(error) do
+    case error do
+      %ArgumentError{} -> "argument_error"
+      %RuntimeError{} -> "runtime_error"
+      %UndefinedFunctionError{} -> "undefined_function_error"
+      %MatchError{} -> "match_error"
+      _ -> "unknown_error"
+    end
+  end
+
+  defp get_config_error_suggestions(error_type) do
+    case error_type do
+      "argument_error" -> [
+        "Check that all configuration values have the correct type",
+        "Ensure entry_point is a function with arity 1",
+        "Verify worker_pool_size is a positive integer",
+        "Check that server_url is a valid WebSocket URL"
+      ]
+      "undefined_function_error" -> [
+        "Ensure the entry_point function module is compiled and available",
+        "Check that all dependencies are properly loaded",
+        "Verify function name and arity match the expected signature"
+      ]
+      "runtime_error" -> [
+        "Check that all required dependencies are available at startup",
+        "Ensure the application environment is properly configured",
+        "Verify no circular dependencies exist in the configuration"
+      ]
+      _ -> [
+        "Review the error message for specific details",
+        "Check the application configuration in config.exs",
+        "Ensure all required modules are compiled and available"
+      ]
     end
   end
 end

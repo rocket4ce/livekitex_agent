@@ -200,5 +200,146 @@ defmodule LivekitexAgent.WorkerOptionsTest do
         apply(WorkerOptions, :validate!, [invalid_options])
       end
     end
+
+    # T010: Enhanced error message scenarios
+    test "error messages include problem description, impact, and fix instructions" do
+      invalid_options = apply(WorkerOptions, :new, [[
+        worker_pool_size: "not_a_number",
+        entry_point: fn _ctx -> :ok end
+      ]])
+
+      exception = assert_raise ArgumentError, fn ->
+        apply(WorkerOptions, :validate!, [invalid_options])
+      end
+
+      error_message = Exception.message(exception)
+
+      # Verify error message structure: what, why, how-to-fix, suggested values
+      assert error_message =~ ~r/Invalid worker_pool_size/  # What: problem description
+      assert error_message =~ ~r/Must be positive integer/  # Why: validation requirement
+      assert error_message =~ ~r/Suggested:/                # How-to-fix: specific guidance
+      assert error_message =~ ~r/#{System.schedulers_online()}/  # Suggested values
+    end
+
+    test "error messages provide actionable guidance for string values" do
+      invalid_options = apply(WorkerOptions, :new, [[
+        worker_pool_size: 4,
+        timeout: "5_minutes",
+        entry_point: fn _ctx -> :ok end
+      ]])
+
+      exception = assert_raise ArgumentError, fn ->
+        apply(WorkerOptions, :validate!, [invalid_options])
+      end
+
+      error_message = Exception.message(exception)
+
+      # Should explain the specific problem and provide actionable fix
+      assert error_message =~ ~r/Invalid timeout/
+      assert error_message =~ ~r/received: "5_minutes"/i     # Shows received value
+      assert error_message =~ ~r/timeout: \d+/               # Suggests numeric value
+    end
+
+    test "error messages explain impact on system functionality" do
+      invalid_options = apply(WorkerOptions, :new, [[
+        worker_pool_size: 0,
+        entry_point: fn _ctx -> :ok end
+      ]])
+
+      exception = assert_raise ArgumentError, fn ->
+        apply(WorkerOptions, :validate!, [invalid_options])
+      end
+
+      error_message = Exception.message(exception)
+
+      # Should explain why this matters for the system
+      assert error_message =~ ~r/worker pool.*cannot function/i or
+             error_message =~ ~r/prevents.*worker.*creation/i or
+             error_message =~ ~r/blocks.*job processing/i
+    end
+
+    test "error messages provide multiple fix suggestions for common mistakes" do
+      invalid_options = apply(WorkerOptions, :new, [[
+        worker_pool_size: -5,
+        entry_point: fn _ctx -> :ok end
+      ]])
+
+      exception = assert_raise ArgumentError, fn ->
+        apply(WorkerOptions, :validate!, [invalid_options])
+      end
+
+      error_message = Exception.message(exception)
+
+      # Should provide multiple alternatives
+      assert error_message =~ ~r/Suggested.*#{System.schedulers_online()}/  # Default suggestion
+      assert error_message =~ ~r/or.*[48]|[48].*or/                         # Alternative values
+    end
+
+    test "error messages handle missing required fields" do
+      invalid_options = apply(WorkerOptions, :new, [[
+        worker_pool_size: 4
+        # Missing entry_point
+      ]])
+
+      exception = assert_raise ArgumentError, fn ->
+        apply(WorkerOptions, :validate!, [invalid_options])
+      end
+
+      error_message = Exception.message(exception)
+
+      assert error_message =~ ~r/Missing.*entry_point/i
+      assert error_message =~ ~r/fn.*ctx.*->.*end/         # Shows function syntax
+      assert error_message =~ ~r/Required for.*agent/i     # Explains why needed
+    end
+
+    test "error messages provide context-specific suggestions" do
+      # Test different invalid values get different suggestions
+      test_cases = [
+        {-1, ~r/positive.*integer.*Suggested.*#{System.schedulers_online()}/},
+        {0, ~r/positive.*integer.*Suggested.*1.*or.*#{System.schedulers_online()}/},
+        {1000, ~r/too high.*Suggested.*#{System.schedulers_online()}/}
+      ]
+
+      for {invalid_value, expected_pattern} <- test_cases do
+        invalid_options = apply(WorkerOptions, :new, [[
+          worker_pool_size: invalid_value,
+          entry_point: fn _ctx -> :ok end
+        ]])
+
+        exception = assert_raise ArgumentError, fn ->
+          apply(WorkerOptions, :validate!, [invalid_options])
+        end
+
+        error_message = Exception.message(exception)
+        assert error_message =~ expected_pattern
+      end
+    end
+
+    test "error messages are consistent in format across all validations" do
+      # Test multiple different validation errors follow same format
+      validation_tests = [
+        {[worker_pool_size: -1], ~r/Invalid worker_pool_size:.+Must be.+Suggested:/},
+        {[timeout: -100], ~r/Invalid timeout:.+Must be.+Suggested:/},
+        {[max_concurrent_jobs: 0], ~r/Invalid max_concurrent_jobs:.+Must be.+Suggested:/}
+      ]
+
+      for {invalid_config, format_pattern} <- validation_tests do
+        config_with_defaults = Keyword.merge([
+          worker_pool_size: 4,
+          timeout: 300_000,
+          entry_point: fn _ctx -> :ok end
+        ], invalid_config)
+
+        invalid_options = apply(WorkerOptions, :new, [config_with_defaults])
+
+        exception = assert_raise ArgumentError, fn ->
+          apply(WorkerOptions, :validate!, [invalid_options])
+        end
+
+        error_message = Exception.message(exception)
+        assert error_message =~ format_pattern,
+               "Error message format inconsistent for #{inspect(invalid_config)}: #{error_message}"
+      end
+    end
   end
 end

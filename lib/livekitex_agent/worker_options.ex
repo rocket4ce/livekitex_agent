@@ -335,35 +335,70 @@ defmodule LivekitexAgent.WorkerOptions do
         validated_options
 
       {:error, :invalid_entry_point} ->
-        raise ArgumentError, """
-        Invalid entry_point: must be a function that accepts 1 argument.
-        Suggested: Add an entry_point function to handle jobs.
-        Example: entry_point: &MyModule.handle_job/1
-        """
+        raise ArgumentError,
+          format_validation_error(
+            :entry_point,
+            options.entry_point,
+            "Function accepting 1 argument required for job processing",
+            "Add an entry_point function to handle incoming jobs",
+            ["entry_point: &MyModule.handle_job/1", "entry_point: fn ctx -> :ok end"]
+          )
 
       {:error, :invalid_worker_pool_size} ->
-        raise ArgumentError, """
-        Invalid worker_pool_size: #{inspect(options.worker_pool_size)}. Must be positive integer.
-        Suggested: worker_pool_size: #{System.schedulers_online()}
-        """
+        suggestions = case options.worker_pool_size do
+          n when is_integer(n) and n <= 0 ->
+            ["worker_pool_size: 1", "worker_pool_size: #{System.schedulers_online()}"]
+          n when is_integer(n) and n > 100 ->
+            ["worker_pool_size: #{System.schedulers_online()}", "worker_pool_size: 8"]
+          _ ->
+            ["worker_pool_size: #{System.schedulers_online()}", "worker_pool_size: 4"]
+        end
+
+        raise ArgumentError,
+          format_validation_error(
+            :worker_pool_size,
+            options.worker_pool_size,
+            "Positive integer required, as worker pool cannot function without active workers",
+            "Set worker_pool_size to a positive integer based on your system's CPU cores",
+            suggestions
+          )
 
       {:error, :invalid_timeout} ->
-        raise ArgumentError, """
-        Invalid timeout: #{inspect(options.timeout)}. Must be positive integer (milliseconds).
-        Suggested: timeout: 300_000 (5 minutes)
-        """
+        raise ArgumentError,
+          format_validation_error(
+            :timeout,
+            options.timeout,
+            "Positive integer (milliseconds) required for job execution timeout",
+            "Set timeout to prevent jobs from running indefinitely and blocking workers",
+            ["timeout: 300_000", "timeout: 600_000"]
+          )
 
       {:error, :invalid_server_url} ->
-        raise ArgumentError, """
-        Invalid server_url: #{inspect(options.server_url)}. Must be valid URL string.
-        Suggested: server_url: "ws://localhost:7880" or "wss://your-domain.livekit.cloud"
-        """
+        raise ArgumentError,
+          format_validation_error(
+            :server_url,
+            options.server_url,
+            "Valid WebSocket URL required for LiveKit server connection",
+            "Provide a valid WebSocket URL pointing to your LiveKit server",
+            ["server_url: \"ws://localhost:7880\"", "server_url: \"wss://your-domain.livekit.cloud\""]
+          )
 
       {:error, :invalid_max_concurrent_jobs} ->
-        raise ArgumentError, """
-        Invalid max_concurrent_jobs: #{inspect(options.max_concurrent_jobs)}. Must be positive integer.
-        Suggested: max_concurrent_jobs: 10
-        """
+        suggestions = case options.max_concurrent_jobs do
+          n when is_integer(n) and n <= 0 ->
+            ["max_concurrent_jobs: 1", "max_concurrent_jobs: 10"]
+          _ ->
+            ["max_concurrent_jobs: 10", "max_concurrent_jobs: #{options.worker_pool_size * 2}"]
+        end
+
+        raise ArgumentError,
+          format_validation_error(
+            :max_concurrent_jobs,
+            options.max_concurrent_jobs,
+            "Positive integer required to limit worker load and prevent resource exhaustion",
+            "Set max_concurrent_jobs to control how many jobs each worker handles simultaneously",
+            suggestions
+          )
 
       {:error, error} ->
         raise ArgumentError, "Invalid WorkerOptions: #{inspect(error)}"
@@ -806,5 +841,23 @@ defmodule LivekitexAgent.WorkerOptions do
       memory_load * memory_weight +
       queue_load * queue_weight +
       connection_load * connection_weight
+  end
+
+  # Helper function to format validation error messages with consistent structure
+  # Follows contract: what, why, how-to-fix, suggested values
+  defp format_validation_error(field, received_value, reason, impact, suggestions) do
+    """
+    Invalid #{field}: #{inspect(received_value)}. #{reason}.
+    Impact: #{impact}.
+    Suggested: #{format_suggestions(suggestions)}
+    """
+  end
+
+  defp format_suggestions(suggestions) when is_list(suggestions) do
+    case suggestions do
+      [single] -> single
+      [first | rest] -> "#{first} or #{Enum.join(rest, " or ")}"
+      [] -> "See documentation for valid values"
+    end
   end
 end
