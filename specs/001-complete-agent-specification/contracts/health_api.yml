@@ -1,0 +1,572 @@
+openapi: 3.0.3
+info:
+  title: LivekitexAgent Health API
+  description: Health check and monitoring endpoints for LivekitexAgent workers
+  version: 1.0.0
+  contact:
+    name: LivekitexAgent
+    url: https://github.com/rocket4ce/livekitex_agent
+
+servers:
+  - url: http://localhost:8080
+    description: Default health check server
+
+paths:
+  /health:
+    get:
+      summary: Get worker health status
+      description: Returns current health status of the worker including system metrics
+      operationId: getHealth
+      responses:
+        '200':
+          description: Worker is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+            text/plain:
+              schema:
+                type: string
+                example: "OK"
+        '503':
+          description: Worker is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /ready:
+    get:
+      summary: Get worker readiness status
+      description: Returns whether worker is ready to accept new jobs
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Worker is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessStatus'
+            text/plain:
+              schema:
+                type: string
+                example: "READY"
+        '503':
+          description: Worker is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessStatus'
+
+  /metrics:
+    get:
+      summary: Get worker metrics
+      description: Returns detailed performance and usage metrics
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+            text/plain:
+              schema:
+                type: string
+                description: Prometheus-format metrics
+
+  /status:
+    get:
+      summary: Get comprehensive worker status
+      description: Returns detailed worker status including configuration and runtime info
+      operationId: getStatus
+      responses:
+        '200':
+          description: Worker status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerStatus'
+
+  /sessions:
+    get:
+      summary: List active sessions
+      description: Returns list of currently active agent sessions
+      operationId: getSessions
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of sessions to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+        - name: offset
+          in: query
+          description: Number of sessions to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: List of active sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SessionInfo'
+                  total:
+                    type: integer
+                    description: Total number of active sessions
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+
+  /sessions/{sessionId}:
+    get:
+      summary: Get session details
+      description: Returns detailed information about a specific session
+      operationId: getSession
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: Session identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionDetails'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tools:
+    get:
+      summary: List registered function tools
+      description: Returns list of all registered function tools
+      operationId: getTools
+      responses:
+        '200':
+          description: List of registered tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ToolInfo'
+                  total:
+                    type: integer
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+          description: Overall health status
+        timestamp:
+          type: string
+          format: date-time
+          description: Status check timestamp
+        uptime_seconds:
+          type: integer
+          description: Worker uptime in seconds
+        version:
+          type: string
+          description: Worker version
+        system:
+          $ref: '#/components/schemas/SystemHealth'
+        livekit:
+          $ref: '#/components/schemas/LiveKitHealth'
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthCheck'
+
+    SystemHealth:
+      type: object
+      properties:
+        memory_usage_mb:
+          type: number
+          description: Current memory usage in MB
+        cpu_usage_percent:
+          type: number
+          description: Current CPU usage percentage
+        load_average:
+          type: array
+          items:
+            type: number
+          description: System load averages [1m, 5m, 15m]
+        disk_usage_percent:
+          type: number
+          description: Disk usage percentage
+
+    LiveKitHealth:
+      type: object
+      properties:
+        connected:
+          type: boolean
+          description: LiveKit server connection status
+        server_url:
+          type: string
+          description: Connected LiveKit server URL
+        last_heartbeat:
+          type: string
+          format: date-time
+          description: Last successful heartbeat
+        connection_quality:
+          type: string
+          enum: [excellent, good, poor, disconnected]
+
+    HealthCheck:
+      type: object
+      required:
+        - name
+        - status
+      properties:
+        name:
+          type: string
+          description: Health check name
+        status:
+          type: string
+          enum: [pass, fail, warn]
+        duration_ms:
+          type: number
+          description: Check execution time in milliseconds
+        message:
+          type: string
+          description: Additional status information
+
+    ReadinessStatus:
+      type: object
+      required:
+        - ready
+        - timestamp
+      properties:
+        ready:
+          type: boolean
+          description: Whether worker is ready to accept jobs
+        timestamp:
+          type: string
+          format: date-time
+        active_jobs:
+          type: integer
+          description: Number of currently active jobs
+        max_jobs:
+          type: integer
+          description: Maximum concurrent jobs configured
+        load_percentage:
+          type: number
+          description: Current load as percentage of capacity
+
+    Metrics:
+      type: object
+      properties:
+        jobs:
+          $ref: '#/components/schemas/JobMetrics'
+        sessions:
+          $ref: '#/components/schemas/SessionMetrics'
+        audio:
+          $ref: '#/components/schemas/AudioMetrics'
+        tools:
+          $ref: '#/components/schemas/ToolMetrics'
+        system:
+          $ref: '#/components/schemas/SystemMetrics'
+
+    JobMetrics:
+      type: object
+      properties:
+        total_jobs:
+          type: integer
+          description: Total jobs processed since start
+        active_jobs:
+          type: integer
+          description: Currently active jobs
+        completed_jobs:
+          type: integer
+          description: Successfully completed jobs
+        failed_jobs:
+          type: integer
+          description: Failed jobs
+        average_duration_ms:
+          type: number
+          description: Average job duration
+
+    SessionMetrics:
+      type: object
+      properties:
+        total_sessions:
+          type: integer
+        active_sessions:
+          type: integer
+        messages_processed:
+          type: integer
+        average_session_duration_ms:
+          type: number
+
+    AudioMetrics:
+      type: object
+      properties:
+        audio_segments_processed:
+          type: integer
+        average_processing_latency_ms:
+          type: number
+        vad_activations:
+          type: integer
+        audio_quality_score:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ToolMetrics:
+      type: object
+      properties:
+        tool_calls_executed:
+          type: integer
+        tool_execution_errors:
+          type: integer
+        average_tool_duration_ms:
+          type: number
+        tools_by_usage:
+          type: array
+          items:
+            type: object
+            properties:
+              tool_name:
+                type: string
+              call_count:
+                type: integer
+
+    SystemMetrics:
+      type: object
+      properties:
+        memory_usage_mb:
+          type: number
+        cpu_usage_percent:
+          type: number
+        network_bytes_sent:
+          type: integer
+        network_bytes_received:
+          type: integer
+        gc_collections:
+          type: integer
+        gc_time_ms:
+          type: number
+
+    WorkerStatus:
+      type: object
+      required:
+        - worker_id
+        - status
+        - started_at
+      properties:
+        worker_id:
+          type: string
+          description: Unique worker identifier
+        status:
+          type: string
+          enum: [starting, running, draining, stopped, error]
+        started_at:
+          type: string
+          format: date-time
+        configuration:
+          $ref: '#/components/schemas/WorkerConfiguration'
+        runtime_info:
+          $ref: '#/components/schemas/RuntimeInfo'
+
+    WorkerConfiguration:
+      type: object
+      properties:
+        agent_name:
+          type: string
+        server_url:
+          type: string
+        max_concurrent_jobs:
+          type: integer
+        worker_type:
+          type: string
+        region:
+          type: string
+        health_check_port:
+          type: integer
+
+    RuntimeInfo:
+      type: object
+      properties:
+        elixir_version:
+          type: string
+        otp_version:
+          type: string
+        node_name:
+          type: string
+        process_count:
+          type: integer
+        port_count:
+          type: integer
+
+    SessionInfo:
+      type: object
+      required:
+        - session_id
+        - status
+        - started_at
+      properties:
+        session_id:
+          type: string
+        agent_id:
+          type: string
+        status:
+          type: string
+          enum: [initializing, connected, active, paused, disconnected, error]
+        started_at:
+          type: string
+          format: date-time
+        participant_count:
+          type: integer
+        room_id:
+          type: string
+
+    SessionDetails:
+      allOf:
+        - $ref: '#/components/schemas/SessionInfo'
+        - type: object
+          properties:
+            conversation_turns:
+              type: integer
+            last_activity_at:
+              type: string
+              format: date-time
+            participants:
+              type: array
+              items:
+                $ref: '#/components/schemas/ParticipantInfo'
+            metrics:
+              type: object
+              properties:
+                messages_sent:
+                  type: integer
+                messages_received:
+                  type: integer
+                audio_duration_seconds:
+                  type: number
+                tool_calls:
+                  type: integer
+
+    ParticipantInfo:
+      type: object
+      required:
+        - participant_id
+        - identity
+        - kind
+      properties:
+        participant_id:
+          type: string
+        identity:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum: [standard, agent, sip]
+        connection_state:
+          type: string
+          enum: [connecting, connected, reconnecting, disconnected]
+        joined_at:
+          type: string
+          format: date-time
+
+    ToolInfo:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        module:
+          type: string
+        function:
+          type: string
+        arity:
+          type: integer
+        timeout_ms:
+          type: integer
+        call_count:
+          type: integer
+        error_count:
+          type: integer
+        average_duration_ms:
+          type: number
+
+    Error:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
