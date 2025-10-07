@@ -84,7 +84,15 @@ defmodule LivekitexAgent.Application do
   # Resolve WorkerOptions for Phoenix integration
   defp resolve_worker_options do
     try do
-      apply(LivekitexAgent.WorkerOptions, :from_config, [])
+      # Ensure we get a keyword list from config
+      user_config = Application.get_env(:livekitex_agent, :default_worker_options, [])
+
+      config = case user_config do
+        list when is_list(list) -> list
+        _ -> []
+      end
+
+      LivekitexAgent.WorkerOptions.from_config(config)
     rescue
       error ->
         Logger.error("""
@@ -96,16 +104,22 @@ defmodule LivekitexAgent.Application do
         2. Check that all required dependencies are available
         3. Verify your entry_point function is valid
 
-        Falling back to minimal configuration...
+        Falling back to emergency defaults...
         """)
 
-        # Fallback to minimal configuration to prevent startup crash
-        apply(LivekitexAgent.WorkerOptions, :new, [[
-          entry_point: fn _ctx -> :ok end,  # Simple fallback function
-          worker_pool_size: System.schedulers_online(),
-          agent_name: "emergency_fallback_agent"
-        ]])
+        create_emergency_fallback()
     end
+  end
+
+  # Create emergency fallback configuration for startup resilience
+  defp create_emergency_fallback do
+    LivekitexAgent.WorkerOptions.from_config([
+      entry_point: fn _ctx -> :ok end,
+      worker_pool_size: System.schedulers_online(),
+      agent_name: "emergency_fallback_agent",
+      timeout: 300_000,
+      max_concurrent_jobs: 1
+    ])
   end
 
   # Post-startup initialization
