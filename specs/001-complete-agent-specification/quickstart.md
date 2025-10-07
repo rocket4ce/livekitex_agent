@@ -16,7 +16,7 @@ Add to your `mix.exs` dependencies:
 ```elixir
 def deps do
   [
-    {:livekitex_agent, "~> 1.0"}
+    {:livekitex_agent, "~> 0.1.0"}
   ]
 end
 ```
