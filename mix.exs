@@ -6,12 +6,30 @@ defmodule LivekitexAgent.MixProject do
       app: :livekitex_agent,
       version: "0.1.0",
       elixir: "~> 1.12",
+      build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: description(),
       package: package(),
       name: "LivekitexAgent",
       source_url: "https://github.com/rocket4ce/livekitex_agent",
+
+      # Testing
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ],
+
+      # Dialyzer
+      dialyzer: [
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        plt_add_apps: [:mix]
+      ],
+
+      # Documentation
       docs: [
         main: "LivekitexAgent",
         extras: ["README.md"]
@@ -21,33 +39,34 @@ defmodule LivekitexAgent.MixProject do
 
   def application do
     [
-      extra_applications: [:logger, :crypto],
+      extra_applications: [:logger, :crypto, :ssl, :inets],
       mod: {LivekitexAgent.Application, []}
     ]
   end
 
   defp deps do
     [
-      # JSON encoding/decoding
-      {:jason, "~>  1.4.4"},
-
-      # HTTP client (for LiveKit API and tool integrations)
-      {:hackney, "~> 1.25.0"},
-      {:httpoison, "~>  2.2.3"},
+      # LiveKit Elixir integration
+      {:livekitex, "~> 0.1.34"},
 
       # WebSocket client (for LiveKit connection)
       {:websockex, "~> 0.4.3"},
 
-      # Time and date utilities
-      {:timex, "~>  3.7.13"},
+      # HTTP client (for LiveKit API and tool integrations)
+      {:httpoison, "~> 2.2.3"},
+      {:hackney, "~> 1.25.0"},
 
-      # Configuration and environment
-      {:ex_doc, "~>  0.38.3", only: :dev, runtime: false},
+      # JSON encoding/decoding
+      {:jason, "~> 1.4.4"},
+
+      # Time and date utilities
+      {:timex, "~> 3.7.13"},
+
+      # Development and testing
+      {:ex_doc, "~> 0.38.3", only: :dev, runtime: false},
       {:credo, "~> 1.7.12", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4.6", only: [:dev], runtime: false},
-      {:livekitex, "~> 0.1.34"},
-
-      # Testing
+      {:excoveralls, "~> 0.18", only: :test},
       {:mox, "~> 1.2.0", only: :test}
     ]
   end

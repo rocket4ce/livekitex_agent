@@ -4,6 +4,16 @@
 
 LivekitexAgent is an Elixir library that provides a complete clone of Python LiveKit Agents functionality, designed for building real-time conversational AI agents with audio/video capabilities. The library leverages the custom `livekitex` library for LiveKit protocol communication and follows Elixir/OTP best practices for fault tolerance and concurrency.
 
+## Clarifications
+
+### Session 2025-10-07
+
+- Q: For the Voice Activity Detection (VAD) sensitivity configuration mentioned in FR3.4, what specific approach should be used for sensitivity control? → A: Numeric threshold (0.0-1.0 confidence level)
+- Q: For the "100+ concurrent sessions" requirement in NFR3.2, what should be the specific target for production deployment sizing? → A: 100 sessions (minimum viable)
+- Q: For the Circuit breaker pattern mentioned in NFR2.4, what should be the failure threshold configuration before activation? → A: Fixed count (5 consecutive failures)
+- Q: For tool execution timeouts mentioned in FR4.6, what should be the default timeout duration for function tools? → A: 60 seconds (complex operations)
+- Q: For session state persistence mentioned in NFR2.3, what should be the storage mechanism for conversation state across restarts? → A: In-memory ETS tables (fast, ephemeral)
+
 ## Context
 
 ### Current State Analysis
@@ -58,7 +68,7 @@ LivekitexAgent is an Elixir library that provides a complete clone of Python Liv
 - **FR3.1**: WebRTC audio/video streaming through LiveKit infrastructure
 - **FR3.2**: PCM16 audio processing with buffering and synchronization
 - **FR3.3**: Low-latency bidirectional communication (<100ms target)
-- **FR3.4**: Voice Activity Detection with configurable sensitivity
+- **FR3.4**: Voice Activity Detection with numeric threshold sensitivity (0.0-1.0 confidence level)
 - **FR3.5**: Speech interruption handling with graceful degradation
 
 ### FR4: Function Tools System
@@ -67,7 +77,7 @@ LivekitexAgent is an Elixir library that provides a complete clone of Python Liv
 - **FR4.3**: Tool registry with dynamic registration/unregistration
 - **FR4.4**: Parameter validation and type conversion
 - **FR4.5**: RunContext for tool execution with session access
-- **FR4.6**: Tool execution with error handling and timeouts
+- **FR4.6**: Tool execution with error handling and 60-second default timeouts
 
 ### FR5: Worker and Job Management
 - **FR5.1**: WorkerOptions configuration with load balancing
@@ -101,15 +111,15 @@ LivekitexAgent is an Elixir library that provides a complete clone of Python Liv
 
 ### NFR1: Performance
 - **NFR1.1**: Sub-100ms audio processing latency for real-time conversation
-- **NFR1.2**: Support for concurrent sessions (min 100 simultaneous)
+- **NFR1.2**: Support for 100 concurrent sessions as minimum viable production target
 - **NFR1.3**: Memory usage optimization with bounded growth
 - **NFR1.4**: CPU-efficient audio processing without blocking
 
 ### NFR2: Reliability
 - **NFR2.1**: 99.9% uptime for worker processes with supervisor recovery
 - **NFR2.2**: Graceful degradation when external services fail
-- **NFR2.3**: Session state persistence across process restarts
-- **NFR2.4**: Circuit breaker pattern for external API calls
+- **NFR2.3**: Session state persistence using in-memory ETS tables (fast access, ephemeral storage)
+- **NFR2.4**: Circuit breaker pattern for external API calls (activates after 5 consecutive failures)
 
 ### NFR3: Scalability
 - **NFR3.1**: Horizontal scaling across multiple worker nodes
