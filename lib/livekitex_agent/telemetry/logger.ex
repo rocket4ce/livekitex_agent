@@ -36,10 +36,8 @@ defmodule LivekitexAgent.Telemetry.Logger do
   """
 
   require Logger
-  alias LivekitexAgent.Telemetry.Logger, as: TelemetryLogger
 
   @default_component "livekitex_agent"
-  @default_correlation_id_header "x-correlation-id"
 
   defstruct [
     :component,
@@ -201,7 +199,7 @@ defmodule LivekitexAgent.Telemetry.Logger do
       result
     rescue
       e ->
-        log_duration(operation, start_time, [{:result, :error}, {:error, e.message} | fields])
+        log_duration(operation, start_time, [{:result, :error}, {:error, Exception.message(e)} | fields])
         reraise e, __STACKTRACE__
     end
   end

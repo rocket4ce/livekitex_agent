@@ -149,7 +149,7 @@ defmodule LivekitexAgent.WorkerSupervisor do
     :ets.insert(:worker_supervisor_state, {:metrics, init_metrics()})
 
     # Start the static infrastructure supervisor first
-    {:ok, infrastructure_sup} = start_infrastructure_supervisor(worker_options)
+    {:ok, _infrastructure_sup} = start_infrastructure_supervisor(worker_options)
 
     TelemetryLogger.info("Worker supervisor initialized",
       agent_name: Map.get(worker_options, :agent_name, "unknown"),
@@ -397,7 +397,7 @@ defmodule LivekitexAgent.Worker do
     end
   end
 
-  defp handle_agent_session_job(job, state) do
+  defp handle_agent_session_job(job, _state) do
     # Create or resume an agent session
     session_config = Map.get(job, :session_config, %{})
 
@@ -443,7 +443,7 @@ defmodule LivekitexAgent.Worker do
     end
   end
 
-  defp update_job_metrics(metrics, result, duration) do
+  defp update_job_metrics(metrics, result, _duration) do
     case result do
       :success ->
         %{metrics | jobs_completed: metrics.jobs_completed + 1}

@@ -43,44 +43,26 @@ defmodule LivekitexAgent.HealthServer do
 
   ## Client API
 
-  @doc """
-  Starts the health server GenServer.
-  """
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
-  @doc """
-  Gets the current health status.
-  """
   def get_health_status do
     GenServer.call(__MODULE__, :get_health_status)
   end
 
-  @doc """
-  Gets system metrics.
-  """
   def get_metrics do
     GenServer.call(__MODULE__, :get_metrics)
   end
 
-  @doc """
-  Registers a custom health check function.
-  """
   def register_health_check(name, check_fun) when is_function(check_fun, 0) do
     GenServer.call(__MODULE__, {:register_health_check, name, check_fun})
   end
 
-  @doc """
-  Registers a custom metrics collector function.
-  """
   def register_metrics_collector(name, collector_fun) when is_function(collector_fun, 0) do
     GenServer.call(__MODULE__, {:register_metrics_collector, name, collector_fun})
   end
 
-  @doc """
-  Gets the server's listening port.
-  """
   def get_port do
     GenServer.call(__MODULE__, :get_port)
   end
@@ -344,13 +326,13 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  defp handle_workers_endpoint(state) do
+  defp handle_workers_endpoint(_state) do
     worker_status = get_worker_status()
     response_body = Jason.encode!(worker_status)
     build_http_response(200, response_body, "application/json")
   end
 
-  defp handle_jobs_endpoint(state) do
+  defp handle_jobs_endpoint(_state) do
     job_status = get_job_status()
     response_body = Jason.encode!(job_status)
     build_http_response(200, response_body, "application/json")
@@ -380,17 +362,11 @@ defmodule LivekitexAgent.HealthServer do
 
   # Enhanced Dashboard Endpoints
 
-  @doc """
-  Serves the HTML dashboard UI with interactive monitoring interface.
-  """
   defp handle_dashboard_ui_endpoint(_state) do
     html_content = generate_dashboard_html()
     build_http_response(200, html_content, "text/html")
   end
 
-  @doc """
-  Provides overview API data for dashboard consumption.
-  """
   defp handle_dashboard_overview_api(state) do
     overview_data = %{
       timestamp: DateTime.utc_now(),
@@ -423,9 +399,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Provides detailed worker information for dashboard.
-  """
   defp handle_dashboard_workers_api(_state) do
     workers_data = %{
       timestamp: DateTime.utc_now(),
@@ -447,9 +420,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Provides detailed job queue information for dashboard.
-  """
   defp handle_dashboard_jobs_api(_state) do
     jobs_data = %{
       timestamp: DateTime.utc_now(),
@@ -471,9 +441,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Provides comprehensive metrics data for dashboard visualization.
-  """
   defp handle_dashboard_metrics_api(state) do
     metrics_data = %{
       timestamp: DateTime.utc_now(),
@@ -493,9 +460,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Provides health check data optimized for dashboard display.
-  """
   defp handle_dashboard_health_api(state) do
     health_data = %{
       timestamp: DateTime.utc_now(),
@@ -515,9 +479,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Provides system information and resource utilization.
-  """
   defp handle_dashboard_system_api(_state) do
     system_data = %{
       timestamp: DateTime.utc_now(),
@@ -551,9 +512,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Provides recent application logs for dashboard display.
-  """
   defp handle_dashboard_logs_api(_state) do
     logs_data = %{
       timestamp: DateTime.utc_now(),
@@ -566,9 +524,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Provides alert and notification data for dashboard.
-  """
   defp handle_dashboard_alerts_api(_state) do
     alerts_data = %{
       timestamp: DateTime.utc_now(),
@@ -586,9 +541,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Provides streaming metrics endpoint for real-time dashboard updates.
-  """
   defp handle_streaming_metrics_endpoint(_state) do
     # Server-Sent Events implementation for real-time metrics
     sse_headers = [
@@ -611,9 +563,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response_with_headers(200, streaming_data, sse_headers)
   end
 
-  @doc """
-  Provides streaming logs endpoint for real-time log monitoring.
-  """
   defp handle_streaming_logs_endpoint(_state) do
     # Server-Sent Events implementation for real-time logs
     sse_headers = [
@@ -638,10 +587,7 @@ defmodule LivekitexAgent.HealthServer do
 
   # Administrative Endpoints
 
-  @doc """
-  Handles administrative scaling requests.
-  """
-  defp handle_admin_scale_endpoint(state) do
+  defp handle_admin_scale_endpoint(_state) do
     # This would parse request body for scaling parameters
     # For now, return current scaling status
     scaling_data = %{
@@ -654,9 +600,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Handles administrative restart requests.
-  """
   defp handle_admin_restart_endpoint(_state) do
     # This would handle graceful restart requests
     restart_data = %{
@@ -669,9 +612,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Handles administrative drain requests.
-  """
   defp handle_admin_drain_endpoint(_state) do
     # This would handle drain mode requests
     drain_data = %{
@@ -684,9 +624,6 @@ defmodule LivekitexAgent.HealthServer do
     build_http_response(200, response_body, "application/json")
   end
 
-  @doc """
-  Handles administrative backup requests.
-  """
   defp handle_admin_backup_endpoint(_state) do
     # This would handle backup creation requests
     backup_data = %{
@@ -1152,7 +1089,7 @@ defmodule LivekitexAgent.HealthServer do
           try do
             check_fun.()
           rescue
-            e -> {:error, e.message}
+            e -> {:error, Exception.message(e)}
           catch
             :exit, reason -> {:error, "Exit: #{inspect(reason)}"}
           end

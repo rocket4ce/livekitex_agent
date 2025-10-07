@@ -212,13 +212,13 @@ defmodule LivekitexAgent.WorkerManager do
   def handle_cast({:scale_workers, target_count}, state) do
     current_count = map_size(state.worker_pool)
 
-    cond do
+    new_state = cond do
       target_count > current_count ->
         # Scale up
         new_workers = start_additional_workers(target_count - current_count, state.worker_options)
         worker_pool = Map.merge(state.worker_pool, new_workers)
-        state = %{state | worker_pool: worker_pool}
         Logger.info("Scaled up to #{target_count} workers")
+        %{state | worker_pool: worker_pool}
 
       target_count < current_count ->
         # Scale down
@@ -227,15 +227,15 @@ defmodule LivekitexAgent.WorkerManager do
         {stopped_workers, remaining_workers} =
           stop_excess_workers(state.worker_pool, workers_to_stop)
 
-        state = %{state | worker_pool: remaining_workers}
         Logger.info("Scaled down to #{target_count} workers (stopped #{length(stopped_workers)})")
+        %{state | worker_pool: remaining_workers}
 
       true ->
         # No change needed
-        :ok
+        state
     end
 
-    {:noreply, state}
+    {:noreply, new_state}
   end
 
   @impl true
@@ -288,7 +288,7 @@ defmodule LivekitexAgent.WorkerManager do
       {:stop, :normal, state}
     else
       if remaining_timeout <= 0 do
-        Logger.warn("Shutdown timeout reached, terminating #{active_count} remaining jobs")
+        Logger.warning("Shutdown timeout reached, terminating #{active_count} remaining jobs")
         {:stop, :normal, state}
       else
         # Check again in 1 second
@@ -305,7 +305,7 @@ defmodule LivekitexAgent.WorkerManager do
   end
 
   @impl true
-  def handle_info({ref, result}, state) when is_reference(ref) do
+  def handle_info({ref, _result}, state) when is_reference(ref) do
     # Job completed
     case find_job_by_task_ref(state.active_jobs, ref) do
       {job_id, job_info} ->
@@ -561,7 +561,7 @@ defmodule LivekitexAgent.WorkerManager do
       :closed ->
         # Check if we should trip the breaker
         if should_trip_breaker?(worker_options) do
-          Logger.warn("Circuit breaker tripped")
+          Logger.warning("Circuit breaker tripped")
           :open
         else
           :closed
@@ -582,7 +582,7 @@ defmodule LivekitexAgent.WorkerManager do
       nil ->
         false
 
-      config ->
+      _config ->
         # Simplified check - in real implementation, would track failure count
         # 10% chance to demonstrate the feature
         :rand.uniform() < 0.1

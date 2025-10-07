@@ -15,9 +15,6 @@ defmodule LivekitexAgent.Agent do
   use GenServer
   require Logger
 
-  # State atom definitions
-  @valid_states [:created, :configured, :active, :inactive, :destroyed]
-
   defstruct [
     :agent_id,
     :instructions,

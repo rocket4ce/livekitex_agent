@@ -17,15 +17,19 @@ defmodule LivekitexAgent.Example do
   """
   def create_simple_agent do
     # Create an agent with basic configuration
-    agent =
-      LivekitexAgent.Agent.new(
-        instructions: "You are a helpful voice assistant. Be concise and friendly.",
-        tools: [:get_weather, :add_numbers, :search_web],
-        agent_id: "simple_voice_agent_001"
-      )
+    case LivekitexAgent.Agent.new(
+           instructions: "You are a helpful voice assistant. Be concise and friendly.",
+           tools: [:get_weather, :add_numbers, :search_web],
+           agent_id: "simple_voice_agent_001"
+         ) do
+      {:ok, agent} ->
+        Logger.info("Created agent: #{agent.agent_id}")
+        {:ok, agent}
 
-    Logger.info("Created agent: #{agent.agent_id}")
-    agent
+      {:error, reason} ->
+        Logger.error("Failed to create agent: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
   @doc """

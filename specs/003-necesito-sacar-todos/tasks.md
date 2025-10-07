@@ -21,18 +21,18 @@
 
 #### Category A: Simple Variable/Attribute Fixes (Week 1-2)
 
-- [ ] T009 [P] [US1] Fix unused variable warnings in `lib/livekitex_agent/health_server.ex` (lines 347, 353, 644)
-- [ ] T010 [P] [US1] Fix unused module attribute `@valid_states` in `lib/livekitex_agent/agent.ex` (line 19)
-- [ ] T011 [P] [US1] Remove @doc annotations from private functions in `lib/livekitex_agent/health_server.ex` (lines 383, 391, 426, 450, 474, 496, 518, 554, 569, 589, 614, 641, 657, 672, 687)
-- [ ] T012 [P] [US1] Fix unused variables in `lib/livekitex_agent/cli.ex` (lines 876, 1170, 1623)
-- [ ] T013 [P] [US1] Fix unused variables in `lib/livekitex_agent/telemetry/metrics.ex` (lines 941, 946, 973)
-- [ ] T014 [P] [US1] Fix unused variables in `lib/livekitex_agent/worker_supervisor.ex` (lines 152, 400, 446)
-- [ ] T015 [P] [US1] Fix unused variables in `lib/livekitex_agent/function_tool.ex` (lines 172, 279)
-- [ ] T016 [P] [US1] Fix unused variables in `lib/livekitex_agent/worker_manager.ex` (lines 220, 230, 308, 585)
-- [ ] T017 [P] [US1] Fix unused alias `TelemetryLogger` in `lib/livekitex_agent/telemetry/logger.ex` (line 39)
-- [ ] T018 [P] [US1] Fix unused module attributes in `lib/livekitex_agent/providers/openai/stt.ex` (line 22)
-- [ ] T019 [P] [US1] Fix unused module attribute in `lib/livekitex_agent/telemetry/logger.ex` (line 42)
-- [ ] T020 [P] [US1] Fix unused module attribute `@tool` in `lib/livekitex_agent/example_tools.ex` (line 291)
+- [X] T009 [P] [US1] Fix unused variable warnings in `lib/livekitex_agent/health_server.ex` (lines 347, 353, 644)
+- [X] T010 [P] [US1] Fix unused module attribute `@valid_states` in `lib/livekitex_agent/agent.ex` (line 19)
+- [X] T011 [P] [US1] Remove @doc annotations from private functions in `lib/livekitex_agent/health_server.ex` (lines 383, 391, 426, 450, 474, 496, 518, 554, 569, 589, 614, 641, 657, 672, 687)
+- [X] T012 [P] [US1] Fix unused variables in `lib/livekitex_agent/cli.ex` (lines 876, 1170, 1623)
+- [X] T013 [P] [US1] Fix unused variables in `lib/livekitex_agent/telemetry/metrics.ex` (lines 941, 946, 973)
+- [X] T014 [P] [US1] Fix unused variables in `lib/livekitex_agent/worker_supervisor.ex` (lines 152, 400, 446)
+- [X] T015 [P] [US1] Fix unused variables in `lib/livekitex_agent/function_tool.ex` (lines 172, 279)
+- [X] T016 [P] [US1] Fix unused variables in `lib/livekitex_agent/worker_manager.ex` (lines 220, 230, 308, 585)
+- [X] T017 [P] [US1] Fix unused alias `TelemetryLogger` in `lib/livekitex_agent/telemetry/logger.ex` (line 39)
+- [X] T018 [P] [US1] Fix unused module attributes in `lib/livekitex_agent/providers/openai/stt.ex` (line 22)
+- [X] T019 [P] [US1] Fix unused module attribute in `lib/livekitex_agent/telemetry/logger.ex` (line 42)
+- [X] T020 [P] [US1] Fix unused module attribute `@tool` in `lib/livekitex_agent/example_tools.ex` (line 291)
 
 #### Validation for User Story 1
 

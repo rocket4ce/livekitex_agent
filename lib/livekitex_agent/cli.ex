@@ -873,7 +873,7 @@ defmodule LivekitexAgent.CLI do
     )
   end
 
-  defp print_test_result(tool_name, args, result, duration) do
+  defp print_test_result(_tool_name, args, result, duration) do
     IO.puts("Arguments: #{inspect(args, pretty: true)}")
     IO.puts("Duration: #{duration}ms")
     IO.puts("")
@@ -1167,7 +1167,7 @@ defmodule LivekitexAgent.CLI do
     deploy_start(opts)
   end
 
-  defp deploy_status(opts) do
+  defp deploy_status(_opts) do
     IO.puts("📊 Deployment Status")
     IO.puts("===================")
 
@@ -1620,7 +1620,7 @@ defmodule LivekitexAgent.CLI do
 
   defp get_worker_manager_status do
     case get_worker_manager() do
-      {:ok, manager} ->
+      {:ok, _manager} ->
         try do
           status = LivekitexAgent.WorkerManager.get_status()
           {:ok, status}

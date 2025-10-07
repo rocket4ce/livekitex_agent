@@ -10,6 +10,8 @@ defmodule LivekitexAgent.FunctionTool do
   - Tool registry management
   """
 
+  require Logger
+
   @doc """
   Defines a function tool that can be called by the LLM.
 
@@ -169,7 +171,7 @@ defmodule LivekitexAgent.FunctionTool do
   end
 
   defp enhance_tool_definition(tool, module, opts) do
-    namespace = Keyword.get(opts, :namespace)
+    _namespace = Keyword.get(opts, :namespace)
 
     tool
     |> Map.put(:module, module)
@@ -276,7 +278,7 @@ defmodule LivekitexAgent.FunctionTool do
   Executes a tool with enhanced error handling and monitoring.
   """
   def execute_tool_safely(tool_name, arguments, context \\ nil, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 60_000)
+    _timeout = Keyword.get(opts, :timeout, 60_000)
     retry_attempts = Keyword.get(opts, :retry_attempts, 0)
 
     execution_start = System.monotonic_time(:millisecond)
@@ -413,7 +415,9 @@ defmodule LivekitexAgent.FunctionTool do
     tool_functions
   end
 
-  defp execute_tool_definition(tool, arguments, context, opts \\ []) do
+  defp execute_tool_definition(tool, arguments, context, opts \\ [])
+
+  defp execute_tool_definition(tool, arguments, context, opts) do
     timeout = Keyword.get(opts, :timeout, 60_000)
 
     case validate_and_convert_arguments(tool, arguments) do

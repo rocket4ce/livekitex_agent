@@ -13,7 +13,6 @@ defmodule LivekitexAgent.ExampleTools do
   use LivekitexAgent.FunctionTool
   require Logger
 
-  @tool "Get weather information for a specific location"
   @spec get_weather(String.t()) :: String.t()
   def get_weather(location) do
     # Mock weather API call
@@ -29,13 +28,11 @@ defmodule LivekitexAgent.ExampleTools do
     "Weather in #{location}: #{condition}, #{temperature}°C"
   end
 
-  @tool "Calculate the sum of two numbers"
   @spec add_numbers(number(), number()) :: number()
   def add_numbers(a, b) when is_number(a) and is_number(b) do
     a + b
   end
 
-  @tool "Search for information on the web with context logging"
   @spec search_web(String.t(), LivekitexAgent.RunContext.t()) :: String.t()
   def search_web(query, context) do
     LivekitexAgent.RunContext.log_info(context, "Performing web search for: #{query}")
@@ -53,7 +50,6 @@ defmodule LivekitexAgent.ExampleTools do
     Enum.join(results, "\n")
   end
 
-  @tool "Get the current time in a specific timezone (UTC, EST, PST supported)"
   @spec get_current_time(String.t()) :: String.t()
   def get_current_time(timezone \\ "UTC") do
     try do
@@ -82,7 +78,6 @@ defmodule LivekitexAgent.ExampleTools do
     end
   end
 
-  @tool "Generate a random number between min and max values (inclusive)"
   @spec random_number(integer(), integer()) :: integer()
   def random_number(min, max) when is_integer(min) and is_integer(max) and min <= max do
     Enum.random(min..max)
@@ -92,13 +87,11 @@ defmodule LivekitexAgent.ExampleTools do
     raise ArgumentError, "min and max must be integers and min <= max"
   end
 
-  @tool "Convert text to uppercase letters"
   @spec to_uppercase(String.t()) :: String.t()
   def to_uppercase(text) when is_binary(text) do
     String.upcase(text)
   end
 
-  @tool "Count the number of words in a text string"
   @spec count_words(String.t()) :: integer()
   def count_words(text) when is_binary(text) do
     text
@@ -107,7 +100,6 @@ defmodule LivekitexAgent.ExampleTools do
     |> length()
   end
 
-  @tool "Store a key-value pair in user session data"
   @spec store_user_data(String.t(), String.t(), LivekitexAgent.RunContext.t()) :: String.t()
   def store_user_data(key, value, context) do
     LivekitexAgent.RunContext.put_user_data(context, key, value)
@@ -116,7 +108,6 @@ defmodule LivekitexAgent.ExampleTools do
     "Stored #{key} = #{value} in user data"
   end
 
-  @tool "Retrieve a value from user session data by key"
   @spec get_user_data(String.t(), LivekitexAgent.RunContext.t()) :: String.t()
   def get_user_data(key, context) do
     case LivekitexAgent.RunContext.get_user_data(context, key) do
@@ -128,7 +119,6 @@ defmodule LivekitexAgent.ExampleTools do
     end
   end
 
-  @tool "Calculate factorial of a non-negative integer (n!)"
   @spec factorial(non_neg_integer()) :: non_neg_integer()
   def factorial(0), do: 1
 
@@ -175,7 +165,6 @@ defmodule LivekitexAgent.ExampleTools do
 
   # Advanced tool examples showcasing enhanced features
 
-  @tool "Convert temperature between Celsius and Fahrenheit"
   @spec convert_temperature(number(), String.t()) :: String.t()
   def convert_temperature(temp, unit) when unit in ["C", "F", "celsius", "fahrenheit"] do
     case String.downcase(unit) do
@@ -193,7 +182,6 @@ defmodule LivekitexAgent.ExampleTools do
     "Unsupported unit: #{unit}. Use 'C', 'F', 'celsius', or 'fahrenheit'"
   end
 
-  @tool "Calculate compound interest for investments"
   @spec compound_interest(number(), number(), number(), integer()) :: String.t()
   def compound_interest(principal, rate, time, compounds_per_year \\ 1)
       when is_number(principal) and is_number(rate) and is_number(time) and
@@ -210,7 +198,6 @@ defmodule LivekitexAgent.ExampleTools do
       "Interest Earned: $#{Float.round(interest, 2)}"
   end
 
-  @tool "Generate secure password with customizable options"
   @spec generate_password(integer(), String.t()) :: String.t()
   def generate_password(length \\ 12, options \\ "all")
       when is_integer(length) and length > 0 and length <= 100 do
@@ -231,7 +218,6 @@ defmodule LivekitexAgent.ExampleTools do
     "Generated #{length}-character password: #{password}"
   end
 
-  @tool "Validate and format email addresses"
   @spec validate_email(String.t()) :: String.t()
   def validate_email(email) when is_binary(email) do
     email_regex = ~r/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
@@ -244,7 +230,6 @@ defmodule LivekitexAgent.ExampleTools do
     end
   end
 
-  @tool "Calculate BMI and health category"
   @spec calculate_bmi(number(), number(), String.t()) :: String.t()
   def calculate_bmi(weight, height, unit \\ "metric")
       when is_number(weight) and is_number(height) do
@@ -270,7 +255,6 @@ defmodule LivekitexAgent.ExampleTools do
     "BMI: #{Float.round(bmi, 1)} (#{category})"
   end
 
-  @tool "Interrupt current speech and provide immediate response"
   @spec interrupt_and_respond(String.t(), LivekitexAgent.RunContext.t()) :: String.t()
   def interrupt_and_respond(message, context) do
     case LivekitexAgent.RunContext.interrupt_speech(context) do
@@ -288,7 +272,6 @@ defmodule LivekitexAgent.ExampleTools do
     end
   end
 
-  @tool "Control speech volume during tool execution"
   @spec adjust_speech_volume(number(), LivekitexAgent.RunContext.t()) :: String.t()
   def adjust_speech_volume(volume, context) when volume >= 0 and volume <= 1 do
     case LivekitexAgent.RunContext.control_speech(context, {:set_volume, volume}) do

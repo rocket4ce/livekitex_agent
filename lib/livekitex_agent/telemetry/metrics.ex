@@ -938,12 +938,12 @@ defmodule LivekitexAgent.Telemetry.Metrics do
 
   # Enterprise Reporting Functions
 
-  defp generate_comprehensive_report(opts, state) do
+  defp generate_comprehensive_report(opts, _state) do
     format = Keyword.get(opts, :format, :json)
     from_time = Keyword.get(opts, :from, System.system_time(:millisecond) - 3_600_000)
     to_time = Keyword.get(opts, :to, System.system_time(:millisecond))
     include_system = Keyword.get(opts, :include_system, true)
-    include_business = Keyword.get(opts, :include_business, true)
+    _include_business = Keyword.get(opts, :include_business, true)
     aggregation_level = Keyword.get(opts, :aggregation_level, 60) * 1000
 
     report_data = %{
@@ -970,7 +970,7 @@ defmodule LivekitexAgent.Telemetry.Metrics do
     end
   end
 
-  defp build_dashboard_data(state) do
+  defp build_dashboard_data(_state) do
     current_time = System.system_time(:millisecond)
     hour_ago = current_time - 3_600_000
 
