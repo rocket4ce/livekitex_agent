@@ -55,7 +55,7 @@ defmodule LivekitexAgent.Telemetry.Logger do
           metadata: map()
         }
 
-  @type log_level :: :debug | :info | :warn | :error
+  @type log_level :: :debug | :info | :warning | :error
 
   ## Context Management
 
@@ -134,7 +134,7 @@ defmodule LivekitexAgent.Telemetry.Logger do
   Logs a warning message with structured context.
   """
   def warn(message, fields \\ []) do
-    log(:warn, message, fields)
+    log(:warning, message, fields)
   end
 
   @doc """
@@ -154,7 +154,7 @@ defmodule LivekitexAgent.Telemetry.Logger do
     case level do
       :debug -> Logger.debug(fn -> format_log(structured_log) end)
       :info -> Logger.info(fn -> format_log(structured_log) end)
-      :warn -> Logger.warning(fn -> format_log(structured_log) end)
+      :warning -> Logger.warning(fn -> format_log(structured_log) end)
       :error -> Logger.error(fn -> format_log(structured_log) end)
     end
   end
@@ -183,7 +183,7 @@ defmodule LivekitexAgent.Telemetry.Logger do
         end_time: end_time
       ] ++ fields
 
-    level = if duration_ms > 5000, do: :warn, else: :info
+    level = if duration_ms > 5000, do: :warning, else: :info
     log(level, "Operation completed: #{operation}", fields_with_duration)
   end
 
@@ -298,7 +298,7 @@ defmodule LivekitexAgent.Telemetry.Logger do
     level =
       case result do
         {:ok, _} -> :info
-        {:error, _} -> :warn
+        {:error, _} -> :warning
       end
 
     provider_fields =

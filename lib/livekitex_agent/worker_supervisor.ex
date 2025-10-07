@@ -149,7 +149,23 @@ defmodule LivekitexAgent.WorkerSupervisor do
     :ets.insert(:worker_supervisor_state, {:metrics, init_metrics()})
 
     # Start the static infrastructure supervisor first
-    {:ok, _infrastructure_sup} = start_infrastructure_supervisor(worker_options)
+    case start_infrastructure_supervisor(worker_options) do
+      {:ok, _infrastructure_sup} ->
+        :ok
+
+      {:error, {:already_started, _pid}} ->
+        # Infrastructure already started (common in test scenarios)
+        Logger.debug("Infrastructure supervisor already running, continuing...")
+        :ok
+
+      {:error, {:shutdown, {:failed_to_start_child, child, {:already_started, _pid}}}} ->
+        # One of the children (like ToolRegistry) is already started
+        Logger.debug("Infrastructure child #{inspect(child)} already running, continuing...")
+        :ok
+
+      {:error, reason} ->
+        raise "Failed to start infrastructure supervisor: #{inspect(reason)}"
+    end
 
     TelemetryLogger.info("Worker supervisor initialized",
       agent_name: Map.get(worker_options, :agent_name, "unknown"),

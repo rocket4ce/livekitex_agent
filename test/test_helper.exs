@@ -3,9 +3,9 @@
 # Start ExUnit
 ExUnit.start()
 
-# Mox setup for mocking
-Mox.defmock(MockWorkerManager, for: LivekitexAgent.WorkerManagerBehaviour)
-Application.put_env(:livekitex_agent, :worker_manager, MockWorkerManager)
+# Mox setup for mocking (commented out until needed)
+# Mox.defmock(MockWorkerManager, for: LivekitexAgent.WorkerManagerBehaviour)
+# Application.put_env(:livekitex_agent, :worker_manager, MockWorkerManager)
 
 # Phoenix integration test support
 defmodule PhoenixIntegrationSupport do

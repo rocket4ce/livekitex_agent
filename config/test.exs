@@ -27,7 +27,7 @@ config :livekitex_agent,
     drain_timeout: 5_000,
     # Different port to avoid conflicts
     health_check_port: 8081,
-    log_level: :warn
+    log_level: :warning
   ],
 
   # Faster timeouts for testing
@@ -39,7 +39,7 @@ config :livekitex_agent,
 
 # Reduced logging in tests
 config :logger,
-  level: :warn,
+  level: :warning,
   # No output during tests unless there's an error
   backends: [],
   compile_time_purge_matching: [
