@@ -84,6 +84,8 @@ defmodule LivekitexAgent.Application do
   # Resolve WorkerOptions for Phoenix integration
   defp resolve_worker_options do
     start_time = System.monotonic_time(:millisecond)
+    start_time_native = System.monotonic_time()
+
     # Ensure we get a keyword list from config
     user_config = Application.get_env(:livekitex_agent, :default_worker_options, [])
 
@@ -96,6 +98,13 @@ defmodule LivekitexAgent.Application do
         config_present: user_config != nil,
         config_type: config_type_string(user_config)
       })
+
+      # Emit telemetry event for resolution start
+      :telemetry.execute(
+        [:livekitex_agent, :config, :resolution, :start],
+        %{system_time: System.system_time()},
+        %{config_type: config_type_string(user_config)}
+      )
 
       config = case user_config do
         list when is_list(list) ->
@@ -120,24 +129,42 @@ defmodule LivekitexAgent.Application do
       result = LivekitexAgent.WorkerOptions.from_config(config)
 
       end_time = System.monotonic_time(:millisecond)
+      end_time_native = System.monotonic_time()
+      duration_ms = end_time - start_time
+      duration_native = end_time_native - start_time_native
+
       Logger.info("Configuration resolution completed successfully", %{
         event: "config_resolution_success",
-        duration_ms: end_time - start_time,
+        duration_ms: duration_ms,
         worker_pool_size: result.worker_pool_size,
         agent_name: result.agent_name,
         timeout: result.timeout
       })
 
+      # Emit telemetry event for successful resolution
+      :telemetry.execute(
+        [:livekitex_agent, :config, :resolution, :stop],
+        %{duration: duration_native, duration_ms: duration_ms},
+        %{
+          result: :success,
+          worker_pool_size: result.worker_pool_size,
+          agent_name: result.agent_name
+        }
+      )
+
       result
     rescue
       error ->
         end_time = System.monotonic_time(:millisecond)
+        end_time_native = System.monotonic_time()
+        duration_ms = end_time - start_time
+        duration_native = end_time_native - start_time_native
         error_type = error_type_string(error)
 
         # Structured error logging with detailed context
         Logger.error("Configuration resolution failed, using emergency fallback", %{
           event: "config_resolution_failure",
-          duration_ms: end_time - start_time,
+          duration_ms: duration_ms,
           error_type: error_type,
           error_message: Exception.message(error),
           error_module: error.__struct__,
@@ -146,6 +173,18 @@ defmodule LivekitexAgent.Application do
           fallback_status: "emergency_defaults_active",
           impact: "Agent will start with minimal functionality"
         })
+
+        # Emit telemetry event for failed resolution
+        :telemetry.execute(
+          [:livekitex_agent, :config, :resolution, :exception],
+          %{duration: duration_native, duration_ms: duration_ms},
+          %{
+            kind: :error,
+            reason: error,
+            error_type: error_type,
+            stacktrace: __STACKTRACE__
+          }
+        )
 
         # Also log user-friendly error message
         Logger.error("""
@@ -166,6 +205,8 @@ defmodule LivekitexAgent.Application do
 
   # Create emergency fallback configuration for startup resilience
   defp create_emergency_fallback do
+    fallback_start_time = System.monotonic_time()
+
     fallback_config = [
       entry_point: fn _ctx -> :ok end,
       worker_pool_size: System.schedulers_online(),
@@ -187,15 +228,37 @@ defmodule LivekitexAgent.Application do
       recommended_action: "Fix configuration and restart for full functionality"
     })
 
+    # Emit telemetry event for fallback creation start
+    :telemetry.execute(
+      [:livekitex_agent, :config, :fallback, :start],
+      %{system_time: System.system_time()},
+      %{worker_pool_size: System.schedulers_online()}
+    )
+
     result = LivekitexAgent.WorkerOptions.from_config(fallback_config)
+
+    fallback_end_time = System.monotonic_time()
+    fallback_duration = fallback_end_time - fallback_start_time
 
     Logger.info("Emergency fallback configuration created successfully", %{
       event: "emergency_fallback_success",
       agent_name: result.agent_name,
       worker_pool_size: result.worker_pool_size,
       timeout: result.timeout,
-      status: "minimal_functionality_available"
+      status: "minimal_functionality_available",
+      duration_native: fallback_duration
     })
+
+    # Emit telemetry event for fallback creation completion
+    :telemetry.execute(
+      [:livekitex_agent, :config, :fallback, :stop],
+      %{duration: fallback_duration},
+      %{
+        agent_name: result.agent_name,
+        worker_pool_size: result.worker_pool_size,
+        status: :success
+      }
+    )
 
     result
   end
