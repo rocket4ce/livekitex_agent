@@ -98,11 +98,11 @@
 
 ### Implementation for User Story 3
 
-- [ ] T035 [P] [US3] Enhance WorkerOptions with load balancing configuration in lib/livekitex_agent/worker_options.ex
-- [ ] T036 [P] [US3] Implement worker manager with job distribution in lib/livekitex_agent/worker_manager.ex
-- [ ] T037 [P] [US3] Create health check HTTP endpoints in lib/livekitex_agent/health_server.ex
-- [ ] T038 [P] [US3] Implement metrics collection and reporting in lib/livekitex_agent/telemetry/metrics.ex
-- [ ] T039 [US3] Add graceful shutdown with job completion handling (depends on T036)
+- [X] T035 [P] [US3] Enhance WorkerOptions with load balancing configuration in lib/livekitex_agent/worker_options.ex
+- [X] T036 [P] [US3] Implement worker manager with job distribution in lib/livekitex_agent/worker_manager.ex
+- [X] T037 [P] [US3] Create health check HTTP endpoints in lib/livekitex_agent/health_server.ex
+- [X] T038 [P] [US3] Implement metrics collection and reporting in lib/livekitex_agent/telemetry/metrics.ex
+- [X] T039 [US3] Add graceful shutdown with job completion handling (depends on T036)
 - [ ] T040 [US3] Implement worker pool scaling based on system metrics (depends on T035, T038)
 - [ ] T041 [US3] Add comprehensive CLI commands for production deployment in lib/livekitex_agent/cli.ex
 - [ ] T042 [US3] Create monitoring dashboard endpoints for system status

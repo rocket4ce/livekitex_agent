@@ -72,36 +72,35 @@ defmodule LivekitexAgent.AgentSession do
 
   Event callbacks can be functions with 1 or 2 arguments:
 
-      # Single argument (receives event data)
-      callback_fun = fn data -> IO.puts("Event: #{inspect(data)}") end
+      # Single argument (receives event data):
+      # callback_fun = fn event_data -> IO.puts("Event: " <> inspect(event_data)) end
 
-      # Two arguments (receives event type and data)
-      callback_fun = fn event_type, data ->
-        IO.puts("#{event_type}: #{inspect(data)}")
-      end
+      # Two arguments (receives event type and data):
+      # callback_fun = fn event_type, event_data ->
+      #   IO.puts(event_type <> ": " <> inspect(event_data))
+      # end
 
   ### Example Usage
 
       # Register callbacks during session creation
-      {:ok, session} = AgentSession.start_link(
-        agent: agent,
-        event_callbacks: %{
-          session_started: fn _evt, data ->
-            Logger.info("Session started: #{data.session_id}")
-          end,
-          text_received: fn _evt, data ->
-            Logger.info("User said: #{data.text}")
-          end,
-          response_generated: fn _evt, data ->
-            Logger.info("Agent replied: #{data.text}")
-          end
-        }
-      )
+      # {:ok, session} = AgentSession.start_link(
+      #   agent: agent,
+      #   event_callbacks: %{
+      #     session_started: fn _evt, data ->
+      #       Logger.info("Session started: " <> data.session_id)
+      #     end,
+      #     text_received: fn _evt, data ->
+      #       Logger.info("User said: " <> data.text)
+      #     end,
+      #       Logger.info("Agent replied: " <> data.text)
+      #     end
+      #   }
+      # )
 
       # Register additional callbacks at runtime
-      AgentSession.register_callback(session, :interrupted, fn _evt, _data ->
-        Logger.warn("Session was interrupted!")
-      end)
+      # AgentSession.register_callback(session, :interrupted, fn _evt, _data ->
+      #   Logger.warn("Session was interrupted!")
+      # end)
 
       # Register multiple callbacks at once
       AgentSession.register_callbacks(session, %{
@@ -356,7 +355,7 @@ defmodule LivekitexAgent.AgentSession do
           session_id: session_id,
           restore_data: conversation_data
         ])
-        start_session(session_opts)
+        start_link(session_opts)
 
       {:error, reason} ->
         {:error, {:restore_failed, reason}}

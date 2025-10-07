@@ -55,12 +55,11 @@ defmodule LivekitexAgent.FunctionTool do
     end
   end
 
-  defmacro __before_compile__(env) do
-    tools = Module.get_attribute(env.module, :tools) || []
-
+  defmacro __before_compile__(_env) do
     quote do
       def __tools__ do
-        unquote(Macro.escape(build_tool_definitions(env.module, tools)))
+        tools = Module.get_attribute(__MODULE__, :tools) || []
+        build_tool_definitions(__MODULE__, tools)
       end
     end
   end
@@ -389,7 +388,7 @@ defmodule LivekitexAgent.FunctionTool do
 
   # Private functions
 
-  defp build_tool_definitions(module, descriptions) do
+  def build_tool_definitions(module, descriptions) do
     # Get all exported functions from the module
     functions = module.module_info(:functions)
 
@@ -423,17 +422,19 @@ defmodule LivekitexAgent.FunctionTool do
   defp do_execute_tool_with_timeout(tool, arguments, context, timeout) do
     task = Task.async(fn -> do_execute_tool(tool, arguments, context) end)
 
-    case Task.yield(task, timeout) || Task.shutdown(task) do
-      {:ok, result} ->
-        result
+    try do
+      case Task.yield(task, timeout) || Task.shutdown(task) do
+        {:ok, result} ->
+          result
 
-      nil ->
-        {:error, {:timeout, timeout}}
+        nil ->
+          {:error, {:timeout, timeout}}
+      end
+    rescue
+      error ->
+        Task.shutdown(task, :brutal_kill)
+        {:error, {:task_error, error}}
     end
-  rescue
-    error ->
-      Task.shutdown(task, :brutal_kill)
-      {:error, {:task_error, error}}
   end
 
   defp do_execute_tool(tool, arguments, context) do

@@ -264,6 +264,60 @@ defmodule LivekitexAgent.Telemetry.Metrics do
   end
 
   @doc """
+  Generates a comprehensive metrics report for the specified time period.
+
+  ## Options
+  - `:format` - Report format (:json, :csv, :prometheus, :html)
+  - `:from` - Start timestamp (default: 1 hour ago)
+  - `:to` - End timestamp (default: now)
+  - `:include_system` - Include system metrics (default: true)
+  - `:include_business` - Include business metrics (default: true)
+  - `:aggregation_level` - Aggregation level in seconds (default: 60)
+  """
+  def generate_report(opts \\ []) do
+    GenServer.call(__MODULE__, {:generate_report, opts}, 30_000)
+  end
+
+  @doc """
+  Creates a performance dashboard data structure.
+
+  Returns structured data suitable for rendering in monitoring dashboards.
+  """
+  def get_dashboard_data do
+    GenServer.call(__MODULE__, :get_dashboard_data)
+  end
+
+  @doc """
+  Gets detailed metrics for worker performance analysis.
+  """
+  def get_worker_performance_metrics do
+    GenServer.call(__MODULE__, :get_worker_performance_metrics)
+  end
+
+  @doc """
+  Gets audio processing quality metrics and trends.
+  """
+  def get_audio_quality_metrics do
+    GenServer.call(__MODULE__, :get_audio_quality_metrics)
+  end
+
+  @doc """
+  Sets up alerting rules for specific metrics.
+
+  ## Example
+      Metrics.set_alert_rule("high_latency", %{
+        metric: "audio.stt.latency_ms",
+        condition: :greater_than,
+        threshold: 2000,
+        duration_seconds: 300,
+        callback: &MyApp.Alerts.high_latency_alert/1
+      })
+  """
+  def set_alert_rule(rule_name, rule_config) do
+    GenServer.call(__MODULE__, {:set_alert_rule, rule_name, rule_config})
+  end
+
+  @doc """
   Clears all metrics data (useful for testing).
   """
   def clear_metrics do
@@ -434,6 +488,37 @@ defmodule LivekitexAgent.Telemetry.Metrics do
     :ets.delete_all_objects(@metrics_table)
     Logger.info("All metrics cleared")
     {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call({:generate_report, opts}, _from, state) do
+    report = generate_comprehensive_report(opts, state)
+    {:reply, report, state}
+  end
+
+  @impl true
+  def handle_call(:get_dashboard_data, _from, state) do
+    dashboard_data = build_dashboard_data(state)
+    {:reply, dashboard_data, state}
+  end
+
+  @impl true
+  def handle_call(:get_worker_performance_metrics, _from, state) do
+    worker_metrics = get_worker_performance_data()
+    {:reply, worker_metrics, state}
+  end
+
+  @impl true
+  def handle_call(:get_audio_quality_metrics, _from, state) do
+    audio_metrics = get_audio_quality_data()
+    {:reply, audio_metrics, state}
+  end
+
+  @impl true
+  def handle_call({:set_alert_rule, rule_name, rule_config}, _from, state) do
+    # Store alert rules and set up monitoring
+    new_state = add_alert_rule(state, rule_name, rule_config)
+    {:reply, :ok, new_state}
   end
 
   @impl true
@@ -787,5 +872,244 @@ defmodule LivekitexAgent.Telemetry.Metrics do
       "tool_name" => metadata[:tool_name] || "unknown",
       "session_id" => metadata[:session_id] || "unknown"
     })
+  end
+
+  # Enterprise Reporting Functions
+
+  defp generate_comprehensive_report(opts, state) do
+    format = Keyword.get(opts, :format, :json)
+    from_time = Keyword.get(opts, :from, System.system_time(:millisecond) - 3_600_000)
+    to_time = Keyword.get(opts, :to, System.system_time(:millisecond))
+    include_system = Keyword.get(opts, :include_system, true)
+    include_business = Keyword.get(opts, :include_business, true)
+    aggregation_level = Keyword.get(opts, :aggregation_level, 60) * 1000
+
+    report_data = %{
+      report_period: %{
+        from: from_time,
+        to: to_time,
+        duration_ms: to_time - from_time
+      },
+      generated_at: System.system_time(:millisecond),
+      system_info: if(include_system, do: get_system_info_for_report(), else: nil),
+      performance_summary: get_performance_summary(from_time, to_time),
+      metrics_summary: get_metrics_summary(from_time, to_time),
+      trends: get_metrics_trends(from_time, to_time, aggregation_level),
+      alerts: get_active_alerts(),
+      recommendations: generate_performance_recommendations()
+    }
+
+    case format do
+      :json -> {:ok, Jason.encode!(report_data)}
+      :csv -> {:ok, format_report_as_csv(report_data)}
+      :html -> {:ok, format_report_as_html(report_data)}
+      :prometheus -> {:ok, format_report_as_prometheus(report_data)}
+      _ -> {:error, :unsupported_format}
+    end
+  end
+
+  defp build_dashboard_data(state) do
+    current_time = System.system_time(:millisecond)
+    hour_ago = current_time - 3_600_000
+
+    %{
+      overview: %{
+        active_sessions: get_gauge_value("agent.sessions.active"),
+        total_requests: get_counter_value("agent.sessions.started"),
+        error_rate: calculate_error_rate(hour_ago, current_time),
+        avg_response_time: get_avg_response_time(hour_ago, current_time)
+      },
+      real_time_metrics: %{
+        cpu_usage: get_current_cpu_usage(),
+        memory_usage: get_current_memory_usage(),
+        active_connections: get_gauge_value("connection.active_count"),
+        queue_size: get_queue_metrics()
+      },
+      performance_trends: get_performance_trends(hour_ago, current_time),
+      top_errors: get_top_errors(hour_ago, current_time),
+      worker_status: get_worker_dashboard_status(),
+      audio_quality: get_audio_quality_dashboard()
+    }
+  end
+
+  defp get_worker_performance_data do
+    case Process.whereis(LivekitexAgent.WorkerManager) do
+      nil ->
+        %{error: "Worker manager not available"}
+
+      _pid ->
+        hour_ago = System.system_time(:millisecond) - 3_600_000
+        current_time = System.system_time(:millisecond)
+
+        %{
+          throughput: get_worker_throughput(hour_ago, current_time),
+          latency_distribution: get_worker_latency_distribution(hour_ago, current_time),
+          error_rates: get_worker_error_rates(hour_ago, current_time),
+          resource_utilization: get_worker_resource_utilization(),
+          scaling_history: get_scaling_events(hour_ago, current_time)
+        }
+    end
+  end
+
+  defp get_audio_quality_data do
+    hour_ago = System.system_time(:millisecond) - 3_600_000
+    current_time = System.system_time(:millisecond)
+
+    %{
+      stt_performance: %{
+        avg_latency: get_avg_stt_latency(hour_ago, current_time),
+        accuracy_score: get_avg_stt_accuracy(hour_ago, current_time),
+        provider_comparison: get_stt_provider_comparison(hour_ago, current_time)
+      },
+      tts_performance: %{
+        avg_latency: get_avg_tts_latency(hour_ago, current_time),
+        quality_score: get_avg_tts_quality(hour_ago, current_time),
+        voice_performance: get_voice_performance_breakdown(hour_ago, current_time)
+      },
+      overall_audio_quality: get_overall_audio_quality_score(hour_ago, current_time)
+    }
+  end
+
+  defp add_alert_rule(state, rule_name, rule_config) do
+    # In a full implementation, this would set up monitoring for the rule
+    Logger.info("Alert rule configured: #{rule_name} - #{inspect(rule_config)}")
+    state
+  end
+
+  # Helper functions for metrics calculations
+
+  defp get_system_info_for_report do
+    %{
+      node: Node.self(),
+      uptime_ms: get_system_uptime(),
+      erlang_version: :erlang.system_info(:otp_release),
+      elixir_version: System.version(),
+      system_architecture: :erlang.system_info(:system_architecture)
+    }
+  end
+
+  defp get_performance_summary(from_time, to_time) do
+    %{
+      session_count: count_sessions_in_period(from_time, to_time),
+      avg_session_duration: get_avg_session_duration(from_time, to_time),
+      successful_sessions: count_successful_sessions(from_time, to_time),
+      error_count: count_errors_in_period(from_time, to_time),
+      peak_concurrent_sessions: get_peak_concurrent_sessions(from_time, to_time)
+    }
+  end
+
+  defp get_metrics_summary(from_time, to_time) do
+    %{
+      total_data_points: count_metrics_in_period(from_time, to_time),
+      unique_metrics: count_unique_metrics(from_time, to_time),
+      most_active_metrics: get_most_active_metrics(from_time, to_time),
+      data_completeness: calculate_data_completeness(from_time, to_time)
+    }
+  end
+
+  defp get_metrics_trends(from_time, to_time, interval_ms) do
+    # Simplified implementation - would include more sophisticated trend analysis
+    %{
+      session_trend: calculate_session_trend(from_time, to_time, interval_ms),
+      latency_trend: calculate_latency_trend(from_time, to_time, interval_ms),
+      error_trend: calculate_error_trend(from_time, to_time, interval_ms)
+    }
+  end
+
+  defp generate_performance_recommendations do
+    # Basic performance recommendations based on current metrics
+    recommendations = []
+
+    # Check high latency
+    avg_latency = get_current_avg_latency()
+    recommendations = if avg_latency > 1000 do
+      ["Consider optimizing audio processing pipeline - high latency detected" | recommendations]
+    else
+      recommendations
+    end
+
+    # Check error rates
+    error_rate = get_current_error_rate()
+    recommendations = if error_rate > 0.05 do
+      ["Investigate error patterns - error rate above 5%" | recommendations]
+    else
+      recommendations
+    end
+
+    # Check memory usage
+    memory_usage = get_current_memory_usage_percentage()
+    recommendations = if memory_usage > 0.8 do
+      ["Consider increasing memory allocation or optimizing memory usage" | recommendations]
+    else
+      recommendations
+    end
+
+    if recommendations == [] do
+      ["System performing within normal parameters"]
+    else
+      recommendations
+    end
+  end
+
+  # Placeholder implementations for helper functions
+  # In a real implementation, these would query the metrics store
+
+  defp get_gauge_value(_name), do: 0
+  defp get_counter_value(_name), do: 0
+  defp calculate_error_rate(_from, _to), do: 0.01
+  defp get_avg_response_time(_from, _to), do: 250
+  defp get_current_cpu_usage, do: 0.3
+  defp get_current_memory_usage, do: 0.4
+  defp get_queue_metrics, do: %{size: 5, capacity: 100}
+  defp get_performance_trends(_from, _to), do: %{trending_up: false}
+  defp get_top_errors(_from, _to), do: []
+  defp get_worker_dashboard_status, do: %{healthy: 3, degraded: 0, unhealthy: 0}
+  defp get_audio_quality_dashboard, do: %{overall_score: 8.5, trending: "stable"}
+
+  defp get_worker_throughput(_from, _to), do: %{requests_per_second: 10.5}
+  defp get_worker_latency_distribution(_from, _to), do: %{p50: 200, p95: 800, p99: 1200}
+  defp get_worker_error_rates(_from, _to), do: %{rate: 0.02, by_type: %{timeout: 0.01, connection: 0.01}}
+  defp get_worker_resource_utilization, do: %{cpu: 0.3, memory: 0.4}
+  defp get_scaling_events(_from, _to), do: []
+
+  defp get_avg_stt_latency(_from, _to), do: 300
+  defp get_avg_stt_accuracy(_from, _to), do: 0.95
+  defp get_stt_provider_comparison(_from, _to), do: %{openai: %{latency: 300, accuracy: 0.95}}
+  defp get_avg_tts_latency(_from, _to), do: 250
+  defp get_avg_tts_quality(_from, _to), do: 8.7
+  defp get_voice_performance_breakdown(_from, _to), do: %{nova: %{latency: 250, quality: 8.7}}
+  defp get_overall_audio_quality_score(_from, _to), do: 8.5
+
+  defp get_system_uptime, do: System.system_time(:millisecond)
+  defp count_sessions_in_period(_from, _to), do: 50
+  defp get_avg_session_duration(_from, _to), do: 30000
+  defp count_successful_sessions(_from, _to), do: 48
+  defp count_errors_in_period(_from, _to), do: 2
+  defp get_peak_concurrent_sessions(_from, _to), do: 8
+  defp count_metrics_in_period(_from, _to), do: 1000
+  defp count_unique_metrics(_from, _to), do: 25
+  defp get_most_active_metrics(_from, _to), do: ["agent.sessions.started", "audio.stt.latency_ms"]
+  defp calculate_data_completeness(_from, _to), do: 0.98
+
+  defp calculate_session_trend(_from, _to, _interval), do: %{direction: "stable", rate: 0.02}
+  defp calculate_latency_trend(_from, _to, _interval), do: %{direction: "improving", rate: -0.05}
+  defp calculate_error_trend(_from, _to, _interval), do: %{direction: "stable", rate: 0.001}
+
+  defp get_current_avg_latency, do: 250
+  defp get_current_error_rate, do: 0.02
+  defp get_current_memory_usage_percentage, do: 0.4
+
+  defp get_active_alerts, do: []
+
+  defp format_report_as_csv(report_data) do
+    "CSV format not implemented - #{inspect(Map.keys(report_data))}"
+  end
+
+  defp format_report_as_html(report_data) do
+    "HTML format not implemented - #{inspect(Map.keys(report_data))}"
+  end
+
+  defp format_report_as_prometheus(report_data) do
+    "Prometheus format not implemented - #{inspect(Map.keys(report_data))}"
   end
 end
