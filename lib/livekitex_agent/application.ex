@@ -56,7 +56,7 @@ defmodule LivekitexAgent.Application do
       maybe_health_server(),
 
       # Worker supervisor for dynamic agents
-      {LivekitexAgent.WorkerSupervisor, []}
+      {LivekitexAgent.WorkerSupervisor, resolve_worker_options()}
     ]
 
     # Filter out nil values (from disabled services)
@@ -84,7 +84,7 @@ defmodule LivekitexAgent.Application do
   # Resolve WorkerOptions for Phoenix integration
   defp resolve_worker_options do
     try do
-      LivekitexAgent.WorkerOptions.from_config()
+      apply(LivekitexAgent.WorkerOptions, :from_config, [])
     rescue
       error ->
         Logger.error("""
@@ -100,11 +100,11 @@ defmodule LivekitexAgent.Application do
         """)
 
         # Fallback to minimal configuration to prevent startup crash
-        LivekitexAgent.WorkerOptions.new([
-          entry_point: &LivekitexAgent.ExampleTools.auto_entry_point/1,
+        apply(LivekitexAgent.WorkerOptions, :new, [[
+          entry_point: fn _ctx -> :ok end,  # Simple fallback function
           worker_pool_size: System.schedulers_online(),
           agent_name: "emergency_fallback_agent"
-        ])
+        ]])
     end
   end
 

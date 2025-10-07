@@ -43,14 +43,14 @@
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Implement `WorkerOptions.from_config/1` function in `lib/livekitex_agent/worker_options.ex`
-- [ ] T009 [US1] Implement `WorkerOptions.with_defaults/1` function in `lib/livekitex_agent/worker_options.ex`
-- [ ] T010 [US1] Add auto-generated entry_point function in `lib/livekitex_agent/example_tools.ex`
-- [ ] T011 [US1] Modify `Application.start/2` to use resolved WorkerOptions in `lib/livekitex_agent/application.ex`
-- [ ] T012 [P] [US1] Create Phoenix integration test in `test/phoenix_integration_test.exs`
-- [ ] T013 [P] [US1] Add unit tests for `from_config/1` in `test/worker_options_test.exs`
-- [ ] T014 [P] [US1] Add unit tests for `with_defaults/1` in `test/worker_options_test.exs`
-- [ ] T015 [US1] Update default configuration documentation in `config/config.exs`
+- [x] T008 [US1] Implement `WorkerOptions.from_config/1` function in `lib/livekitex_agent/worker_options.ex`
+- [x] T009 [US1] Implement `WorkerOptions.with_defaults/1` function in `lib/livekitex_agent/worker_options.ex`
+- [x] T010 [US1] Add auto-generated entry_point function in `lib/livekitex_agent/example_tools.ex`
+- [x] T011 [US1] Modify `Application.start/2` to use resolved WorkerOptions in `lib/livekitex_agent/application.ex`
+- [x] T012 [P] [US1] Create Phoenix integration test in `test/phoenix_integration_test.exs`
+- [x] T013 [P] [US1] Add unit tests for `from_config/1` in `test/worker_options_test.exs`
+- [x] T014 [P] [US1] Add unit tests for `with_defaults/1` in `test/worker_options_test.exs`
+- [x] T015 [US1] Update default configuration documentation in `config/config.exs`
 
 **Checkpoint**: At this point, Phoenix developers can add livekitex_agent dependency and start Phoenix without configuration errors
 

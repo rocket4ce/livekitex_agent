@@ -36,14 +36,18 @@ defmodule LivekitexAgent.ExampleTools do
   """
   @spec auto_entry_point(LivekitexAgent.JobContext.t()) :: :ok
   def auto_entry_point(%LivekitexAgent.JobContext{} = job_context) do
-    Logger.info("Auto-generated entry point handling job: #{inspect(job_context.job_request)}")
+    Logger.info("Auto-generated entry point handling job: #{inspect(job_context.job_id)}")
 
     # Extract basic job information
-    room_name = job_context.room_name || "unknown_room"
-    participant_count = length(job_context.participants || [])
+    room_name = case job_context.room do
+      %{name: name} -> name
+      _ -> "unknown_room"
+    end
+    participant_count = map_size(job_context.participants || %{})
 
     Logger.info("""
     Phoenix Integration Job Handler:
+    - Job ID: #{job_context.job_id}
     - Room: #{room_name}
     - Participants: #{participant_count}
     - Agent ready for custom implementation

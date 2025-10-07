@@ -71,7 +71,7 @@ defmodule LivekitexAgent.MixProject do
 
       # Phoenix integration testing
       {:phoenix, "~> 1.8.1", only: :test},
-      {:plug, "~> 1.15", only: :test}
+      {:plug, "~> 1.15"}
     ]
   end
 
