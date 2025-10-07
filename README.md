@@ -591,108 +591,410 @@ event_callbacks: %{
 
 ## 🚀 Phoenix Integration
 
-LivekitexAgent integrates seamlessly with Phoenix applications for web-based voice interfaces:
+LivekitexAgent provides seamless **zero-configuration** integration with Phoenix 1.8.1+ applications. Just add the dependency and start building voice-enabled web interfaces!
 
-### LiveView Integration
+### 📦 Quick Start (Zero Configuration)
+
+**1. Add to your Phoenix project:**
+
+```elixir
+# mix.exs
+def deps do
+  [
+    {:livekitex_agent, "~> 0.1.0"},
+    # ... your existing deps
+  ]
+end
+```
+
+**2. Start your Phoenix server:**
+
+```bash
+mix deps.get
+mix phx.server
+```
+
+✅ **That's it!** LivekitexAgent starts automatically with sensible defaults.
+
+> **No configuration required** - The library automatically configures itself for Phoenix development with reasonable defaults (worker pool size: 4, development-friendly logging).
+
+### ⚙️ Custom Configuration (Optional)
+
+For production or custom requirements, configure in your Phoenix app:
+
+```elixir
+# config/config.exs
+config :livekitex_agent,
+  default_worker_options: [
+    # Worker management
+    worker_pool_size: 8,                    # Number of concurrent agent workers
+    max_concurrent_jobs: 100,               # Max simultaneous sessions
+
+    # Agent settings
+    agent_name: "my_phoenix_agent",         # Display name for your agent
+    server_url: "wss://your-livekit.com",   # LiveKit server URL
+    api_key: "your-api-key",                # LiveKit API key
+    api_secret: "your-api-secret",          # LiveKit API secret
+
+    # Development options
+    entry_point: MyApp.CustomAgentTools,    # Custom tool module (optional)
+    log_level: :info                        # Logging verbosity
+  ]
+```
+
+**Environment-specific configuration:**
+
+```elixir
+# config/dev.exs
+config :livekitex_agent,
+  default_worker_options: [
+    worker_pool_size: 2,
+    log_level: :debug,
+    server_url: "ws://localhost:7880"  # Local LiveKit development
+  ]
+
+# config/prod.exs
+config :livekitex_agent,
+  default_worker_options: [
+    worker_pool_size: 16,
+    max_concurrent_jobs: 500,
+    log_level: :warn,
+    server_url: System.get_env("LIVEKIT_SERVER_URL"),
+    api_key: System.get_env("LIVEKIT_API_KEY"),
+    api_secret: System.get_env("LIVEKIT_API_SECRET")
+  ]
+```
+
+### 🔗 Phoenix LiveView Integration
+
+Build real-time voice interfaces with LiveView:
 
 ```elixir
 defmodule MyAppWeb.VoiceAgentLive do
   use MyAppWeb, :live_view
 
   def mount(_params, _session, socket) do
-    # Start agent session
+    # Create agent with your business logic
     agent = LivekitexAgent.Agent.new(
-      instructions: "You are a helpful customer service agent.",
-      tools: [:get_product_info, :create_order]
+      instructions: "You are a helpful customer service agent for our e-commerce store.",
+      tools: [:get_product_info, :create_order, :check_inventory]
     )
 
+    # Start agent session with Phoenix-friendly callbacks
     {:ok, session_pid} = LivekitexAgent.AgentSession.start_link(
       agent: agent,
       event_callbacks: %{
+        session_started: fn _evt, _data ->
+          send(self(), :agent_ready)
+        end,
+        text_received: fn _evt, data ->
+          send(self(), {:user_message, data.text})
+        end,
         response_complete: fn _evt, data ->
           send(self(), {:agent_response, data.text})
+        end,
+        function_call_complete: fn _evt, data ->
+          send(self(), {:tool_result, data.result})
+        end,
+        error: fn _evt, data ->
+          send(self(), {:agent_error, data.error})
         end
       }
     )
 
-    {:ok, assign(socket, agent_session: session_pid, messages: [])}
+    {:ok, assign(socket,
+      agent_session: session_pid,
+      messages: [],
+      agent_status: :starting,
+      current_tool: nil
+    )}
   end
 
-  def handle_event("send_message", %{"message" => text}, socket) do
-    LivekitexAgent.AgentSession.process_text(socket.assigns.agent_session, text)
-    messages = socket.assigns.messages ++ [%{role: :user, content: text}]
+  # Handle agent events
+  def handle_info(:agent_ready, socket) do
+    {:noreply, assign(socket, agent_status: :ready)}
+  end
+
+  def handle_info({:user_message, text}, socket) do
+    messages = socket.assigns.messages ++ [%{role: :user, content: text, timestamp: DateTime.utc_now()}]
     {:noreply, assign(socket, messages: messages)}
   end
 
   def handle_info({:agent_response, text}, socket) do
-    messages = socket.assigns.messages ++ [%{role: :assistant, content: text}]
-    {:noreply, assign(socket, messages: messages)}
+    messages = socket.assigns.messages ++ [%{role: :assistant, content: text, timestamp: DateTime.utc_now()}]
+    {:noreply, assign(socket, messages: messages, current_tool: nil)}
+  end
+
+  def handle_info({:tool_result, result}, socket) do
+    {:noreply, assign(socket, current_tool: result.function_name)}
+  end
+
+  def handle_info({:agent_error, error}, socket) do
+    {:noreply, put_flash(socket, :error, "Agent error: #{error}")}
+  end
+
+  # Handle user interactions
+  def handle_event("send_message", %{"message" => text}, socket) do
+    case socket.assigns.agent_status do
+      :ready ->
+        LivekitexAgent.AgentSession.process_text(socket.assigns.agent_session, text)
+        {:noreply, socket}
+      _ ->
+        {:noreply, put_flash(socket, :info, "Agent is starting, please wait...")}
+    end
+  end
+
+  def handle_event("start_voice_session", _params, socket) do
+    # Initialize voice connection (your WebRTC integration here)
+    {:noreply, assign(socket, voice_active: true)}
+  end
+
+  # Template helper
+  def render(assigns) do
+    ~H"""
+    <div class="voice-agent-container">
+      <div class="agent-status">
+        Status: <span class={"status-#{@agent_status}"}><%= @agent_status %></span>
+        <%= if @current_tool do %>
+          <span class="tool-indicator">🔧 Using tool: <%= @current_tool %></span>
+        <% end %>
+      </div>
+
+      <div class="conversation">
+        <%= for message <- @messages do %>
+          <div class={"message message-#{message.role}"}>
+            <strong><%= message.role %>:</strong> <%= message.content %>
+            <small><%= Calendar.strftime(message.timestamp, "%H:%M:%S") %></small>
+          </div>
+        <% end %>
+      </div>
+
+      <form phx-submit="send_message">
+        <input type="text" name="message" placeholder="Type your message..." required />
+        <button type="submit" disabled={@agent_status != :ready}>Send</button>
+      </form>
+
+      <button phx-click="start_voice_session" disabled={@agent_status != :ready}>
+        🎤 Start Voice Chat
+      </button>
+    </div>
+    """
   end
 end
 ```
 
-### WebSocket API
+### 🌐 WebSocket API Integration
+
+For real-time audio streaming and custom frontend integrations:
 
 ```elixir
 defmodule MyAppWeb.VoiceSocket do
   use Phoenix.Socket
 
+  ## Channels
   channel "voice:*", MyAppWeb.VoiceChannel
 
+  @impl true
   def connect(_params, socket, _connect_info) do
+    # Optional: Add authentication logic here
     {:ok, socket}
   end
+
+  @impl true
+  def id(_socket), do: nil
 end
 
 defmodule MyAppWeb.VoiceChannel do
   use MyAppWeb, :channel
+  require Logger
 
-  def join("voice:" <> session_id, _payload, socket) do
-    # Create agent session for this WebSocket connection
-    agent = LivekitexAgent.Agent.new(
-      instructions: "You are a helpful assistant.",
-      tools: [:search_database]
-    )
+  @impl true
+  def join("voice:" <> session_id, payload, socket) do
+    Logger.info("Voice session joining: #{session_id}")
 
-    {:ok, agent_session} = LivekitexAgent.AgentSession.start_link(
+    # Create agent with session-specific configuration
+    agent_config = Map.get(payload, "agent_config", %{})
+
+    agent = LivekitexAgent.Agent.new([
+      instructions: agent_config["instructions"] || "You are a helpful voice assistant.",
+      tools: parse_tools(agent_config["tools"]),
+      agent_id: "phoenix_voice_#{session_id}"
+    ])
+
+    # Start agent session with WebSocket callbacks
+    case LivekitexAgent.AgentSession.start_link(
       agent: agent,
       event_callbacks: %{
+        session_started: fn _evt, data ->
+          push(socket, "session_ready", %{session_id: data.session_id})
+        end,
+        audio_received: fn _evt, data ->
+          push(socket, "agent_speaking", %{is_speaking: true})
+        end,
         response_complete: fn _evt, data ->
-          push(socket, "agent_response", %{text: data.text})
+          push(socket, "agent_response", %{
+            text: data.text,
+            audio: Base.encode64(data.audio || "")
+          })
+          push(socket, "agent_speaking", %{is_speaking: false})
+        end,
+        function_call_start: fn _evt, data ->
+          push(socket, "tool_call", %{
+            function_name: data.function_name,
+            arguments: data.arguments
+          })
+        end,
+        error: fn _evt, data ->
+          push(socket, "error", %{message: data.error, type: data.type})
         end
       }
-    )
+    ) do
+      {:ok, agent_session} ->
+        # Register session for cleanup
+        Registry.register(MyApp.AgentRegistry, session_id, agent_session)
 
-    Registry.register(MyApp.AgentRegistry, session_id, agent_session)
-    {:ok, socket}
-  end
+        {:ok, %{session_id: session_id},
+         assign(socket, agent_session: agent_session, session_id: session_id)}
 
-  def handle_in("send_audio", %{"audio" => audio_b64}, socket) do
-    session_id = socket.topic |> String.split(":") |> List.last()
-
-    case Registry.lookup(MyApp.AgentRegistry, session_id) do
-      [{agent_session, _}] ->
-        audio = Base.decode64!(audio_b64)
-        LivekitexAgent.AgentSession.stream_audio(agent_session, audio)
-        {:reply, :ok, socket}
-      _ ->
-        {:reply, {:error, %{reason: "session_not_found"}}, socket}
+      {:error, reason} ->
+        Logger.error("Failed to start agent session: #{inspect(reason)}")
+        {:error, %{reason: "failed_to_start_session"}}
     end
   end
 
+  @impl true
+  def handle_in("send_text", %{"text" => text}, socket) do
+    case LivekitexAgent.AgentSession.process_text(socket.assigns.agent_session, text) do
+      :ok ->
+        {:reply, :ok, socket}
+      {:error, reason} ->
+        {:reply, {:error, %{reason: inspect(reason)}}, socket}
+    end
+  end
+
+  @impl true
+  def handle_in("stream_audio", %{"audio" => audio_b64}, socket) do
+    try do
+      audio_data = Base.decode64!(audio_b64)
+      LivekitexAgent.AgentSession.stream_audio(socket.assigns.agent_session, audio_data)
+      {:reply, :ok, socket}
+    rescue
+      e ->
+        Logger.error("Audio streaming error: #{inspect(e)}")
+        {:reply, {:error, %{reason: "invalid_audio_data"}}, socket}
+    end
+  end
+
+  @impl true
   def handle_in("commit_audio", _payload, socket) do
-    session_id = socket.topic |> String.split(":") |> List.last()
-
-    case Registry.lookup(MyApp.AgentRegistry, session_id) do
-      [{agent_session, _}] ->
-        LivekitexAgent.AgentSession.commit_audio(agent_session)
-        {:reply, :ok, socket}
-      _ ->
-        {:reply, {:error, %{reason: "session_not_found"}}, socket}
-    end
+    LivekitexAgent.AgentSession.commit_audio(socket.assigns.agent_session)
+    {:reply, :ok, socket}
   end
+
+  @impl true
+  def handle_in("interrupt", _payload, socket) do
+    LivekitexAgent.AgentSession.cancel_response(socket.assigns.agent_session)
+    {:reply, :ok, socket}
+  end
+
+  @impl true
+  def terminate(reason, socket) do
+    Logger.info("Voice session terminating: #{socket.assigns.session_id}, reason: #{inspect(reason)}")
+
+    # Clean up agent session
+    if socket.assigns[:agent_session] do
+      GenServer.stop(socket.assigns.agent_session, :normal)
+    end
+
+    :ok
+  end
+
+  # Helper functions
+  defp parse_tools(nil), do: []
+  defp parse_tools(tools) when is_list(tools) do
+    Enum.map(tools, &String.to_atom/1)
+  end
+  defp parse_tools(_), do: []
 end
 ```
+
+### 🔧 Configuration Reference
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `worker_pool_size` | `integer()` | `4` | Number of concurrent agent worker processes |
+| `max_concurrent_jobs` | `integer()` | `50` | Maximum simultaneous agent sessions |
+| `agent_name` | `String.t()` | `"phoenix_agent"` | Default agent identifier |
+| `server_url` | `String.t()` | `"ws://localhost:7880"` | LiveKit server WebSocket URL |
+| `api_key` | `String.t()` | `nil` | LiveKit API key for production |
+| `api_secret` | `String.t()` | `nil` | LiveKit API secret for production |
+| `entry_point` | `module()` | `LivekitexAgent.ExampleTools` | Module containing agent tools |
+| `log_level` | `atom()` | `:info` | Logging verbosity (`:debug`, `:info`, `:warn`, `:error`) |
+
+### 🚨 Troubleshooting
+
+#### Common Issues
+
+**❌ KeyError: worker_pool_size not found**
+```
+** (KeyError) key :worker_pool_size not found in: []
+```
+**✅ Solution**: This was a known issue in Phoenix integration, now fixed. Update to the latest version or ensure you have the Phoenix integration fixes.
+
+**❌ Agent sessions not starting**
+```
+** (EXIT) :shutdown
+```
+**✅ Solution**: Check your LiveKit server connection and ensure `server_url` is correct in your config.
+
+**❌ Function tools not found**
+```
+** (UndefinedFunctionError) function MyApp.AgentTools.my_tool/1 is undefined
+```
+**✅ Solution**: Ensure your tool module is properly defined and tools are registered:
+
+```elixir
+defmodule MyApp.AgentTools do
+  use LivekitexAgent.FunctionTool
+
+  @tool "Description of your tool"
+  def my_tool(arg) do
+    # Implementation
+  end
+end
+
+# Register in application.ex or config
+LivekitexAgent.FunctionTool.register_module(MyApp.AgentTools)
+```
+
+#### Configuration Validation
+
+LivekitexAgent validates your configuration on startup. Check logs for validation errors:
+
+```elixir
+# Enable debug logging to see configuration resolution
+config :livekitex_agent,
+  default_worker_options: [log_level: :debug]
+```
+
+#### Health Checks
+
+Monitor your agent integration:
+
+```elixir
+# Check if agents are running
+LivekitexAgent.WorkerManager.get_stats()
+
+# Monitor active sessions
+Registry.count(MyApp.AgentRegistry)
+```
+
+#### Performance Tips
+
+- **Development**: Use `worker_pool_size: 2` and `log_level: :debug`
+- **Production**: Increase `worker_pool_size` and `max_concurrent_jobs` based on your server capacity
+- **Memory**: Each active session uses ~10-50MB depending on conversation complexity
+- **Latency**: Keep LiveKit server geographically close to reduce audio processing delays
 
 ## 📚 API Reference
 
