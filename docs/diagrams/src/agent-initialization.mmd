@@ -1,0 +1,55 @@
+sequenceDiagram
+    participant User
+    participant WorkerManager as WorkerManager
+    participant JobContext as JobContext
+    participant AgentSession as AgentSession
+    participant Agent as Agent Configuration
+    participant LiveKit as LiveKit Server
+    participant OpenAI as OpenAI APIs
+    participant ToolRegistry as Tool Registry
+
+    Note over User: Agent Initialization Request
+    User->>WorkerManager: Start agent worker
+
+    Note over WorkerManager: Job Setup Phase
+    WorkerManager->>JobContext: Create job context
+    activate JobContext
+    JobContext-->>WorkerManager: Job context ready
+
+    Note over WorkerManager: Agent Creation Phase
+    WorkerManager->>Agent: Load agent configuration
+    activate Agent
+    Agent-->>WorkerManager: Configuration loaded
+
+    WorkerManager->>ToolRegistry: Register agent tools
+    activate ToolRegistry
+    ToolRegistry-->>WorkerManager: Tools registered
+    deactivate ToolRegistry
+
+    Note over WorkerManager: Session Initialization Phase
+    WorkerManager->>AgentSession: Start agent session
+    activate AgentSession
+    AgentSession->>Agent: Get configuration
+    Agent-->>AgentSession: Instructions & tools
+
+    Note over AgentSession: External Connections Phase
+    AgentSession->>LiveKit: Connect to room
+    activate LiveKit
+    LiveKit-->>AgentSession: Room connected
+
+    AgentSession->>OpenAI: Initialize providers
+    activate OpenAI
+    OpenAI-->>AgentSession: Providers ready
+
+    Note over AgentSession: Ready State
+    AgentSession-->>WorkerManager: Session active
+    WorkerManager-->>JobContext: Job running
+    WorkerManager-->>User: Agent ready for interactions
+
+    Note over User: Agent is now ready to handle conversations
+
+    deactivate OpenAI
+    deactivate LiveKit
+    deactivate AgentSession
+    deactivate Agent
+    deactivate JobContext

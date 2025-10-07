@@ -1,0 +1,74 @@
+graph TB
+    subgraph "External Systems"
+        LK[LiveKit Server<br/>WebRTC Infrastructure]
+        OAI[OpenAI APIs<br/>LLM, STT, TTS, Realtime]
+        EXT[External Tools<br/>Weather, Search, etc.]
+    end
+
+    subgraph "LivekitexAgent System"
+        subgraph "Application Layer"
+            CLI[CLI Interface<br/>Development & Production]
+            API[HTTP API<br/>Management & Control]
+        end
+
+        subgraph "Core Components"
+            WM[WorkerManager<br/>Job Distribution & Scaling]
+            AS[AgentSession<br/>Real-time Orchestration]
+            Agent[Agent Configuration<br/>Instructions & Capabilities]
+        end
+
+        subgraph "Tool System"
+            FT[FunctionTool Registry<br/>Tool Definitions & Execution]
+            TR[ToolRegistry<br/>Dynamic Registration]
+            RC[RunContext<br/>Execution Environment]
+        end
+
+        subgraph "Infrastructure"
+            WS[WorkerSupervisor<br/>Process Management]
+            JC[JobContext<br/>Job Lifecycle]
+            HS[HealthServer<br/>Monitoring & Metrics]
+        end
+    end
+
+    %% Application layer connections
+    CLI --> WM
+    API --> WM
+
+    %% Core workflow connections
+    WM --> AS
+    WM --> WS
+    AS --> Agent
+    AS --> FT
+
+    %% Tool system connections
+    FT --> TR
+    FT --> RC
+    RC --> AS
+
+    %% Infrastructure connections
+    WS --> JC
+    JC --> AS
+    HS --> WM
+
+    %% External integrations
+    AS <--> LK
+    AS <--> OAI
+    FT <--> EXT
+
+    %% Monitoring connections
+    AS -.-> HS
+    WM -.-> HS
+    FT -.-> HS
+
+    %% Styling
+    classDef external fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef core fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef app fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef tools fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef infra fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class LK,OAI,EXT external
+    class WM,AS,Agent core
+    class CLI,API app
+    class FT,TR,RC tools
+    class WS,JC,HS infra

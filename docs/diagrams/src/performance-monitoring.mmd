@@ -1,0 +1,80 @@
+graph TD
+    subgraph "Performance Monitoring Stack"
+        direction TB
+        RealtimeMonitor[Real-time Monitor<br/>250ms intervals]
+        MetricsCollector[Metrics Collector<br/>ETS storage]
+        HealthServer[Health Server<br/>HTTP endpoints]
+
+        RealtimeMonitor --> MetricsCollector
+        MetricsCollector --> HealthServer
+    end
+
+    subgraph "Performance Targets"
+        direction LR
+        AudioLatency["Audio Processing<br/>< 50ms"]
+        EndToEnd["End-to-End Response<br/>< 100ms"]
+        Quality["Audio Quality<br/>> 4.0/5.0"]
+        Memory["Memory Usage<br/>< 500MB/session"]
+
+        AudioLatency -.-> EndToEnd
+        EndToEnd -.-> Quality
+        Quality -.-> Memory
+    end
+
+    subgraph "Measurement Components"
+        direction TB
+        AudioProcessor[Audio Processor<br/>Latency tracking]
+        WebRTCHandler[WebRTC Handler<br/>Network metrics]
+        LLMClient[LLM Client<br/>Response times]
+        ToolRegistry[Tool Registry<br/>Execution times]
+
+        AudioProcessor --> RealtimeMonitor
+        WebRTCHandler --> RealtimeMonitor
+        LLMClient --> RealtimeMonitor
+        ToolRegistry --> RealtimeMonitor
+    end
+
+    subgraph "Alerting & Optimization"
+        direction TB
+        AlertSystem[Alert System<br/>Threshold monitoring]
+        PerformanceOptimizer[Performance Optimizer<br/>Auto-tuning]
+        Dashboard[Dashboard<br/>Real-time visualization]
+
+        MetricsCollector --> AlertSystem
+        AlertSystem --> PerformanceOptimizer
+        MetricsCollector --> Dashboard
+    end
+
+    subgraph "External Integrations"
+        direction LR
+        Prometheus[Prometheus<br/>Metrics export]
+        Grafana[Grafana<br/>Visualization]
+        PagerDuty[PagerDuty<br/>Critical alerts]
+
+        HealthServer --> Prometheus
+        Prometheus --> Grafana
+        AlertSystem --> PagerDuty
+    end
+
+    %% Performance flow connections
+    PerformanceOptimizer -.->|"Optimization signals"| AudioProcessor
+    PerformanceOptimizer -.->|"Resource tuning"| WebRTCHandler
+
+    %% Monitoring data flow
+    AudioProcessor -.->|"Latency: 5-50ms"| RealtimeMonitor
+    WebRTCHandler -.->|"RTT: 10-100ms"| RealtimeMonitor
+    LLMClient -.->|"Response: 200-800ms"| RealtimeMonitor
+    ToolRegistry -.->|"Execution: 50-500ms"| RealtimeMonitor
+
+    %% Styling
+    classDef monitoring fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef targets fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef components fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef alerting fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    classDef external fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+
+    class RealtimeMonitor,MetricsCollector,HealthServer monitoring
+    class AudioLatency,EndToEnd,Quality,Memory targets
+    class AudioProcessor,WebRTCHandler,LLMClient,ToolRegistry components
+    class AlertSystem,PerformanceOptimizer,Dashboard alerting
+    class Prometheus,Grafana,PagerDuty external

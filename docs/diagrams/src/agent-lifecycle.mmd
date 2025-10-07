@@ -1,0 +1,72 @@
+stateDiagram-v2
+    [*] --> Created: Agent.new()
+
+    state Created {
+        [*] --> Validating: Validate config
+        Validating --> Invalid: Validation fails
+        Invalid --> [*]: Error returned
+        Validating --> Configured: Validation passes
+    }
+
+    Created --> Configured: configure()
+
+    state Configured {
+        [*] --> LoadingTools: Register tools
+        LoadingTools --> ToolsReady: Tools loaded
+        ToolsReady --> ProviderSetup: Setup providers
+        ProviderSetup --> Ready: Providers configured
+    }
+
+    Configured --> Active: start_session()
+
+    state Active {
+        [*] --> Idle: Waiting for input
+        Idle --> Listening: Audio/text received
+        Listening --> Processing: Speech detected
+        Processing --> Thinking: STT completed
+        Thinking --> ToolExecution: LLM requests tool
+        Thinking --> Responding: LLM generates response
+        ToolExecution --> Thinking: Tool result returned
+        Responding --> Speaking: TTS generation
+        Speaking --> Idle: Response complete
+
+        Listening --> Interrupted: User interruption
+        Processing --> Interrupted: User interruption
+        Thinking --> Interrupted: User interruption
+        Responding --> Interrupted: User interruption
+        Speaking --> Interrupted: User interruption
+        Interrupted --> Listening: Resume listening
+    }
+
+    Active --> Paused: pause()
+    Paused --> Active: resume()
+    Active --> Inactive: stop_session()
+    Inactive --> Active: restart()
+
+    state ErrorHandling {
+        [*] --> RecoverableError
+        [*] --> NonRecoverableError
+        RecoverableError --> Active: Retry successful
+        RecoverableError --> Inactive: Max retries exceeded
+        NonRecoverableError --> Destroyed: Cannot recover
+    }
+
+    Active --> ErrorHandling: Error occurred
+    Configured --> ErrorHandling: Error occurred
+
+    Active --> Destroyed: destroy()
+    Inactive --> Destroyed: destroy()
+    Paused --> Destroyed: destroy()
+    Destroyed --> [*]
+
+    note right of Active
+        Core conversation states:
+        - Idle: Ready for input
+        - Listening: Processing audio
+        - Processing: STT in progress
+        - Thinking: LLM processing
+        - ToolExecution: Running tools
+        - Responding: Generating response
+        - Speaking: Playing TTS audio
+        - Interrupted: Handling interruption
+    end note

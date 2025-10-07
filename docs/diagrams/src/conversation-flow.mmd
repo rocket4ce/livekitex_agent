@@ -1,0 +1,62 @@
+sequenceDiagram
+    participant User
+    participant LiveKit as LiveKit WebRTC
+    participant AgentSession as AgentSession
+    participant Realtime as OpenAI Realtime WS
+    participant ToolRegistry as Tool Registry
+    participant ExternalTool as External Tool
+
+    Note over User: Real-time Conversation Flow
+
+    User->>LiveKit: Audio input (PCM16)
+    LiveKit->>AgentSession: Stream audio chunk
+
+    Note over AgentSession: Audio Processing
+    AgentSession->>Realtime: Send audio buffer
+    Note right of Realtime: input_audio_buffer.append
+
+    AgentSession->>Realtime: Commit audio
+    Note right of Realtime: input_audio_buffer.commit
+
+    Note over Realtime: Speech Processing & LLM
+    Realtime->>AgentSession: Audio transcription
+    Note left of Realtime: conversation.item.input_audio_transcription.completed
+
+    Realtime->>AgentSession: Function call request
+    Note left of Realtime: response.function_call_arguments.delta
+
+    Note over AgentSession: Tool Execution Phase
+    AgentSession->>ToolRegistry: Lookup tool by name
+    ToolRegistry-->>AgentSession: Tool definition
+
+    AgentSession->>ExternalTool: Execute with parameters
+    activate ExternalTool
+    ExternalTool-->>AgentSession: Tool result
+    deactivate ExternalTool
+
+    AgentSession->>Realtime: Send tool result
+    Note right of Realtime: conversation.item.create (tool result)
+
+    Note over Realtime: Response Generation
+    Realtime->>AgentSession: Audio response delta
+    Note left of Realtime: response.audio.delta
+
+    AgentSession->>LiveKit: Stream audio output
+    LiveKit->>User: Audio response (PCM16)
+
+    Note over User: User hears agent response
+
+    %% Interruption handling
+    rect rgb(255, 240, 240)
+        Note over User: Interruption Scenario
+        User->>LiveKit: New audio input (interruption)
+        LiveKit->>AgentSession: Interrupt signal
+
+        AgentSession->>Realtime: Cancel current response
+        Note right of Realtime: response.cancel
+
+        AgentSession->>Realtime: New audio input
+        Note right of Realtime: input_audio_buffer.append
+
+        Note over AgentSession: Process interruption and continue...
+    end

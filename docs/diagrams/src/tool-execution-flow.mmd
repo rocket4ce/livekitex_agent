@@ -1,0 +1,69 @@
+sequenceDiagram
+    participant AgentSession
+    participant ToolRegistry
+    participant RunContext
+    participant ExternalAPI
+    participant UserData
+
+    Note over AgentSession: Function Tool Execution Flow
+
+    AgentSession->>ToolRegistry: lookup_tool("get_weather")
+    activate ToolRegistry
+    ToolRegistry-->>AgentSession: Tool definition found
+    deactivate ToolRegistry
+
+    Note over AgentSession: Create Execution Context
+    AgentSession->>RunContext: Create new context
+    activate RunContext
+    RunContext->>UserData: Load session data
+    UserData-->>RunContext: User preferences loaded
+    RunContext-->>AgentSession: Context ready
+
+    Note over AgentSession: Validate Parameters
+    AgentSession->>ToolRegistry: validate_params(tool, args)
+    ToolRegistry-->>AgentSession: Parameters valid
+
+    Note over AgentSession: Execute Tool
+    AgentSession->>ToolRegistry: execute_tool(name, args, context)
+    activate ToolRegistry
+
+    ToolRegistry->>RunContext: Get execution environment
+    RunContext-->>ToolRegistry: Execution context
+
+    ToolRegistry->>ExternalAPI: Call external service
+    activate ExternalAPI
+
+    Note right of ExternalAPI: Weather API call
+    ExternalAPI-->>ToolRegistry: Weather data returned
+    deactivate ExternalAPI
+
+    Note over ToolRegistry: Process Result
+    ToolRegistry->>RunContext: Log execution metrics
+    RunContext-->>ToolRegistry: Metrics recorded
+
+    ToolRegistry-->>AgentSession: Tool result
+    deactivate ToolRegistry
+
+    Note over AgentSession: Handle Result
+    AgentSession->>RunContext: Update session state
+    RunContext->>UserData: Save interaction history
+    UserData-->>RunContext: History saved
+
+    RunContext-->>AgentSession: State updated
+    deactivate RunContext
+
+    Note over AgentSession: Return to conversation flow
+
+    %% Error handling scenario
+    rect rgb(255, 245, 245)
+        Note over ToolRegistry: Error Scenario
+        ToolRegistry->>ExternalAPI: API call fails
+        ExternalAPI-->>ToolRegistry: Error response
+
+        ToolRegistry->>RunContext: Log error
+        RunContext-->>ToolRegistry: Error logged
+
+        ToolRegistry-->>AgentSession: Error result with fallback
+
+        Note over AgentSession: Handle gracefully and continue
+    end

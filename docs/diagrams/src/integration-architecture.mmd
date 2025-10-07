@@ -1,0 +1,64 @@
+graph LR
+    subgraph "LiveKit Infrastructure"
+        direction TB
+        LKServer[LiveKit Server<br/>WebRTC Signaling]
+        STUNTurn[STUN/TURN Servers<br/>NAT Traversal]
+        MediaRelay[Media Relay<br/>Selective Forwarding Unit]
+
+        LKServer --- STUNTurn
+        LKServer --- MediaRelay
+    end
+
+    subgraph "LivekitexAgent Integration"
+        direction TB
+        WebRTCHandler[WebRTCHandler<br/>Connection Management]
+        ConnectionManager[ConnectionManager<br/>Room & Participant Mgmt]
+        AudioProcessor[AudioProcessor<br/>PCM16 Processing]
+
+        WebRTCHandler --> ConnectionManager
+        ConnectionManager --> AudioProcessor
+    end
+
+    subgraph "OpenAI Integration"
+        direction TB
+        RealtimeWS[Realtime WebSocket<br/>Bidirectional Streaming]
+        RESTAPI[REST API<br/>LLM, STT, TTS]
+        FunctionCalling[Function Calling<br/>Tool Integration]
+
+        RealtimeWS --> RESTAPI
+        RESTAPI --> FunctionCalling
+    end
+
+    subgraph "Agent Core"
+        direction TB
+        AgentSession[AgentSession<br/>Orchestration]
+        Agent[Agent Config<br/>Instructions & Tools]
+        ToolSystem[Tool System<br/>Function Execution]
+
+        AgentSession --> Agent
+        AgentSession --> ToolSystem
+    end
+
+    %% Integration connections
+    AudioProcessor <--> RealtimeWS
+    WebRTCHandler <--> LKServer
+    AgentSession <--> WebRTCHandler
+    AgentSession <--> RealtimeWS
+    ToolSystem <--> FunctionCalling
+
+    %% Data flow annotations
+    WebRTCHandler -.->|"Audio Streams<br/>PCM16 16kHz"| AudioProcessor
+    RealtimeWS -.->|"WebSocket Messages<br/>JSON + Base64 Audio"| AgentSession
+    RESTAPI -.->|"HTTP/JSON<br/>API Requests"| AgentSession
+    LKServer -.->|"WebRTC Signaling<br/>SDP/ICE"| WebRTCHandler
+
+    %% Styling
+    classDef livekit fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef openai fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef agent fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef integration fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+
+    class LKServer,STUNTurn,MediaRelay livekit
+    class RealtimeWS,RESTAPI,FunctionCalling openai
+    class AgentSession,Agent,ToolSystem agent
+    class WebRTCHandler,ConnectionManager,AudioProcessor integration

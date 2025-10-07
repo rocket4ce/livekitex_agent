@@ -1,0 +1,92 @@
+graph LR
+    subgraph "Event Sources"
+        AS[AgentSession<br/>Session lifecycle events]
+        AP[AudioProcessor<br/>Audio processing events]
+        TF[ToolExecution<br/>Tool execution events]
+        WM[WorkerManager<br/>Worker management events]
+        WS[WorkerSupervisor<br/>Process supervision events]
+        JC[JobContext<br/>Job lifecycle events]
+    end
+
+    subgraph "Event Hub & Processing"
+        ES[Event System<br/>Central event dispatcher]
+        CB[Callback Registry<br/>Event handler management]
+        TEL[Telemetry<br/>:telemetry integration]
+    end
+
+    subgraph "Event Categories"
+        direction TB
+        SESS[Session Events<br/>started, stopped, state_changed]
+        AUDIO[Audio Events<br/>received, processed, tts_complete]
+        CONV[Conversation Events<br/>turn_started, response_generated]
+        TOOL[Tool Events<br/>called, completed, error]
+        ERR[Error Events<br/>session_error, tool_error]
+    end
+
+    subgraph "Event Consumers"
+        direction TB
+        LOG[Logging System<br/>Structured logs]
+        MON[Monitoring<br/>Metrics & alerts]
+        WEB[WebSocket Clients<br/>Real-time UI updates]
+        EXT[External Systems<br/>Webhooks & APIs]
+        DASH[Dashboard<br/>Real-time visualization]
+    end
+
+    %% Event source connections
+    AS --> ES
+    AP --> ES
+    TF --> ES
+    WM --> ES
+    WS --> ES
+    JC --> ES
+
+    %% Event processing
+    ES --> CB
+    ES --> TEL
+    CB --> SESS
+    CB --> AUDIO
+    CB --> CONV
+    CB --> TOOL
+    CB --> ERR
+
+    %% Event consumption
+    SESS --> LOG
+    SESS --> MON
+    SESS --> WEB
+
+    AUDIO --> MON
+    AUDIO --> DASH
+
+    CONV --> WEB
+    CONV --> EXT
+
+    TOOL --> LOG
+    TOOL --> MON
+    TOOL --> EXT
+
+    ERR --> LOG
+    ERR --> MON
+    ERR --> EXT
+
+    %% Event flow annotations
+    AS -.->|"session_started<br/>session_stopped<br/>state_changed"| ES
+    AP -.->|"audio_received<br/>audio_processed<br/>tts_complete"| ES
+    TF -.->|"tool_called<br/>tool_completed<br/>tool_error"| ES
+    WM -.->|"job_assigned<br/>worker_scaled"| ES
+
+    %% Consumer annotations
+    LOG -.->|"Structured logging<br/>with context"| DASH
+    MON -.->|"Metrics collection<br/>& alerting"| DASH
+    WEB -.->|"Live updates<br/>via Phoenix channels"| DASH
+    EXT -.->|"External notifications<br/>via webhooks"| DASH
+
+    %% Styling
+    classDef sources fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef hub fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef categories fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef consumers fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+
+    class AS,AP,TF,WM,WS,JC sources
+    class ES,CB,TEL hub
+    class SESS,AUDIO,CONV,TOOL,ERR categories
+    class LOG,MON,WEB,EXT,DASH consumers
