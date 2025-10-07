@@ -178,8 +178,8 @@
 
 ## Phase 9: Documentation & Examples
 **Purpose**: Ensure users can easily understand and use the library
-- [ ] T075 [P] Rewrite detailed README with setup and usage instructions
-- [ ] T076 [P] Create quickstart guide in docs/quickstart.md
+- [X] T075 [P] Rewrite detailed README with setup and usage instructions
+- [X] T076 [P] Create quickstart guide in docs/quickstart.md
 
 ## Dependencies & Execution Order
 
