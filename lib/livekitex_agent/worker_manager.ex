@@ -82,6 +82,9 @@ defmodule LivekitexAgent.WorkerManager do
 
   @impl true
   def init(worker_options) do
+    # Validate worker options input before proceeding
+    validate_worker_options_input!(worker_options)
+
     # Start job supervisor
     {:ok, job_supervisor_pid} = Task.Supervisor.start_link()
 
@@ -369,6 +372,69 @@ defmodule LivekitexAgent.WorkerManager do
   end
 
   ## Private Functions
+
+  defp validate_worker_options_input!(worker_options) do
+    cond do
+      is_nil(worker_options) ->
+        raise ArgumentError, """
+        WorkerManager requires WorkerOptions struct, got: nil
+
+        Problem: WorkerManager cannot start without valid configuration
+        Impact: Application startup will fail with KeyError exceptions
+
+        Fix: Ensure Application.resolve_worker_options/0 returns a valid WorkerOptions struct
+        Suggested: Check your config.exs has :livekitex_agent, :default_worker_options configured
+        """
+
+      is_list(worker_options) ->
+        raise ArgumentError, """
+        WorkerManager requires WorkerOptions struct, got: list #{inspect(worker_options)}
+
+        Problem: Raw configuration list passed instead of WorkerOptions struct
+        Impact: Cannot access .worker_pool_size field, causing KeyError
+
+        Fix: Convert configuration to WorkerOptions struct using WorkerOptions.from_config/1
+        Suggested: Use Application.resolve_worker_options/0 instead of raw config
+        """
+
+      is_map(worker_options) and not is_struct(worker_options) ->
+        raise ArgumentError, """
+        WorkerManager requires WorkerOptions struct, got: plain map #{inspect(worker_options)}
+
+        Problem: Plain map passed instead of WorkerOptions struct
+        Impact: Cannot access .worker_pool_size field reliably
+
+        Fix: Convert map to WorkerOptions struct using WorkerOptions.from_config/1
+        Suggested: Ensure struct conversion happens before passing to WorkerManager
+        """
+
+      is_struct(worker_options) and worker_options.__struct__ != LivekitexAgent.WorkerOptions ->
+        raise ArgumentError, """
+        WorkerManager requires WorkerOptions struct, got: #{inspect(worker_options.__struct__)}
+
+        Problem: Wrong struct type passed to WorkerManager
+        Impact: Cannot access WorkerOptions fields like .worker_pool_size
+
+        Fix: Pass LivekitexAgent.WorkerOptions struct instead
+        Suggested: Use Application.resolve_worker_options/0 to get correct struct type
+        """
+
+      not is_struct(worker_options, LivekitexAgent.WorkerOptions) ->
+        raise ArgumentError, """
+        WorkerManager requires WorkerOptions struct, got: #{inspect(worker_options)}
+
+        Problem: Invalid input type - expected %LivekitexAgent.WorkerOptions{}
+        Impact: Cannot initialize worker pool, application startup fails
+
+        Fix: Provide valid WorkerOptions struct
+        Suggested: Use Application.resolve_worker_options/0 or WorkerOptions.from_config/1
+        """
+
+      true ->
+        # Input is valid WorkerOptions struct
+        :ok
+    end
+  end
 
   defp initialize_worker_pool(worker_options) do
     count = worker_options.worker_pool_size

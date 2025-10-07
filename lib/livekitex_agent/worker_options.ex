@@ -132,13 +132,49 @@ defmodule LivekitexAgent.WorkerOptions do
       opts = WorkerOptions.from_config()
       # => %WorkerOptions{worker_pool_size: 4, entry_point: &auto_entry_point/1, ...}
   """
-  def from_config(app_name \\ :livekitex_agent) do
-    user_config = Application.get_env(app_name, :default_worker_options, [])
+  def from_config(config) when is_list(config) do
+    config
+    |> validate_config_input!()
+    |> with_defaults()
+    |> new()
+    |> validate!()
+  end
+
+  def from_config(config) when is_nil(config) do
+    # Handle nil by converting to empty list
+    from_config([])
+  end
+
+  def from_config(config) when is_atom(config) do
+    # Legacy support: app name atom
+    user_config = Application.get_env(config, :default_worker_options, [])
 
     user_config
     |> with_defaults()
     |> new()
     |> validate!()
+  end
+
+  def from_config(config) do
+    # Handle invalid input types
+    raise ArgumentError, """
+    WorkerOptions.from_config/1 expects keyword list configuration, got: #{inspect(config)}
+
+    Problem: Invalid configuration type provided to from_config/1
+    Impact: Cannot create WorkerOptions struct, causing KeyError in WorkerManager
+
+    Fix: Provide a keyword list with configuration options
+    Suggested:
+      # Empty configuration (uses all defaults)
+      WorkerOptions.from_config([])
+
+      # With specific options
+      WorkerOptions.from_config([
+        worker_pool_size: 4,
+        timeout: 300_000,
+        agent_name: "my_agent"
+      ])
+    """
   end
 
   @doc """
@@ -197,6 +233,76 @@ defmodule LivekitexAgent.WorkerOptions do
     ]
 
     Keyword.merge(defaults, partial_opts)
+  end
+
+  # Private helper functions
+
+  defp validate_config_input!(config) when is_list(config) do
+    # Validate individual configuration values if present
+    Enum.each(config, fn {key, value} ->
+      case key do
+        :worker_pool_size when not is_integer(value) or value <= 0 ->
+          raise ArgumentError, """
+          Invalid worker_pool_size: #{inspect(value)}. Must be positive integer.
+
+          Problem: worker_pool_size must be a positive integer greater than 0
+          Impact: WorkerManager cannot create worker pool, causing startup failure
+
+          Fix: Set worker_pool_size to a positive integer
+          Suggested: worker_pool_size: #{System.schedulers_online()} (number of CPU cores)
+          """
+
+        :timeout when not is_integer(value) or value <= 0 ->
+          raise ArgumentError, """
+          Invalid timeout: #{inspect(value)}. Must be positive integer (milliseconds).
+
+          Problem: timeout must be a positive integer representing milliseconds
+          Impact: Job execution timeouts will not work correctly
+
+          Fix: Set timeout to positive integer in milliseconds
+          Suggested: timeout: 300_000 (5 minutes)
+          """
+
+        :max_concurrent_jobs when not is_integer(value) or value <= 0 ->
+          raise ArgumentError, """
+          Invalid max_concurrent_jobs: #{inspect(value)}. Must be positive integer.
+
+          Problem: max_concurrent_jobs must be a positive integer
+          Impact: Job concurrency limiting will fail
+
+          Fix: Set max_concurrent_jobs to positive integer
+          Suggested: max_concurrent_jobs: 10
+          """
+
+        :agent_name when not is_binary(value) ->
+          raise ArgumentError, """
+          Invalid agent_name: #{inspect(value)}. Must be string.
+
+          Problem: agent_name must be a string identifier
+          Impact: Agent identification and logging will fail
+
+          Fix: Set agent_name to a string value
+          Suggested: agent_name: "my_agent"
+          """
+
+        :server_url when not is_binary(value) ->
+          raise ArgumentError, """
+          Invalid server_url: #{inspect(value)}. Must be string URL.
+
+          Problem: server_url must be a valid URL string
+          Impact: Cannot connect to LiveKit server
+
+          Fix: Set server_url to valid WebSocket URL
+          Suggested: server_url: "ws://localhost:7880" or "wss://your-domain.livekit.cloud"
+          """
+
+        _ ->
+          # Other fields will be validated later in validate!/1
+          :ok
+      end
+    end)
+
+    config
   end
 
   @doc """
