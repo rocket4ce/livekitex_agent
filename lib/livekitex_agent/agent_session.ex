@@ -136,7 +136,14 @@ defmodule LivekitexAgent.AgentSession do
     :last_activity_at,
     :room_id,
     :participants,
-    :created_at
+    :created_at,
+    # Multi-modal support fields
+    :stream_manager,
+    :video_stream,
+    :text_stream,
+    :multimodal_context,
+    :sync_state,
+    :quality_config
   ]
 
   @type session_state :: :idle | :listening | :processing | :speaking | :interrupted | :stopped
@@ -362,6 +369,92 @@ defmodule LivekitexAgent.AgentSession do
     end
   end
 
+  ## Multi-modal Support API
+
+  @doc """
+  Enables video stream support for the session.
+
+  ## Options
+  - `:video_format` - Video format (:h264, :vp8, :vp9) (default: :h264)
+  - `:resolution` - Video resolution (default: "720p")
+  - `:fps` - Frames per second (default: 30)
+  - `:bitrate` - Video bitrate in kbps (default: 1000)
+  """
+  def enable_video_stream(session_pid, opts \\ []) do
+    GenServer.call(session_pid, {:enable_video_stream, opts})
+  end
+
+  @doc """
+  Disables video stream support for the session.
+  """
+  def disable_video_stream(session_pid) do
+    GenServer.call(session_pid, :disable_video_stream)
+  end
+
+  @doc """
+  Sends video data to the session for processing.
+
+  ## Parameters
+  - `video_data` - Binary video frame data
+  - `opts` - Processing options
+    - `:timestamp` - Frame timestamp (default: current time)
+    - `:frame_type` - Frame type (:keyframe, :delta) (default: :delta)
+    - `:metadata` - Additional frame metadata
+  """
+  def send_video_data(session_pid, video_data, opts \\ []) do
+    GenServer.cast(session_pid, {:video_data, video_data, opts})
+  end
+
+  @doc """
+  Sends text input to the session for processing.
+
+  This enables text-based interactions alongside voice interactions.
+
+  ## Options
+  - `:source` - Text source (:user, :system, :assistant) (default: :user)
+  - `:timestamp` - Message timestamp (default: current time)
+  - `:metadata` - Additional message metadata
+  """
+  def send_text_input(session_pid, text, opts \\ []) do
+    GenServer.cast(session_pid, {:text_input, text, opts})
+  end
+
+  @doc """
+  Gets the current multi-modal context.
+
+  Returns information about active streams, synchronization state, and quality metrics.
+  """
+  def get_multimodal_context(session_pid) do
+    GenServer.call(session_pid, :get_multimodal_context)
+  end
+
+  @doc """
+  Updates quality configuration for multi-modal streams.
+
+  ## Parameters
+  - `stream_type` - Stream type (:audio, :video, :text)
+  - `quality` - Quality level (:low, :medium, :high, :auto)
+  """
+  def update_stream_quality(session_pid, stream_type, quality) do
+    GenServer.call(session_pid, {:update_stream_quality, stream_type, quality})
+  end
+
+  @doc """
+  Synchronizes multiple streams to a common timeline.
+
+  This ensures audio, video, and text streams are properly aligned.
+  """
+  def synchronize_streams(session_pid) do
+    GenServer.call(session_pid, :synchronize_streams)
+  end
+
+  @doc """
+  Gets synchronization status for all active streams.
+  """
+  def get_sync_status(session_pid) do
+    GenServer.call(session_pid, :get_sync_status)
+  end
+
   @doc """
   Updates participant information for the session.
   """
@@ -458,7 +551,14 @@ defmodule LivekitexAgent.AgentSession do
         last_activity_at: DateTime.utc_now(),
         room_id: Keyword.get(opts, :room_id),
         participants: %{},
-        created_at: DateTime.utc_now()
+        created_at: DateTime.utc_now(),
+        # Multi-modal support initialization
+        stream_manager: nil,
+        video_stream: nil,
+        text_stream: %{enabled: true}, # Text is enabled by default
+        multimodal_context: %{},
+        sync_state: %{},
+        quality_config: %{audio: :high, video: :medium, text: :high}
       }
     end
 
@@ -720,6 +820,95 @@ defmodule LivekitexAgent.AgentSession do
     {:noreply, session}
   end
 
+  # Multi-modal support handle_cast implementations
+
+  @impl true
+  def handle_cast({:video_data, video_data, opts}, session) do
+    timestamp = Keyword.get(opts, :timestamp, System.monotonic_time(:millisecond))
+    frame_type = Keyword.get(opts, :frame_type, :delta)
+    metadata = Keyword.get(opts, :metadata, %{})
+
+    Logger.debug("Processing video data: #{byte_size(video_data)} bytes, type: #{frame_type}")
+
+    # Update activity tracking
+    session = %{session | last_activity_at: DateTime.utc_now()}
+
+    # Send to stream manager if available
+    if session.stream_manager do
+      LivekitexAgent.StreamManager.process_data(
+        session.stream_manager,
+        :video,
+        video_data,
+        timestamp: timestamp
+      )
+    end
+
+    # Emit video event
+    emit_event(session, :video_received, %{
+      size: byte_size(video_data),
+      frame_type: frame_type,
+      timestamp: timestamp,
+      metadata: metadata
+    })
+
+    {:noreply, session}
+  end
+
+  @impl true
+  def handle_cast({:text_input, text, opts}, session) do
+    source = Keyword.get(opts, :source, :user)
+    timestamp = Keyword.get(opts, :timestamp, System.monotonic_time(:millisecond))
+    metadata = Keyword.get(opts, :metadata, %{})
+
+    Logger.debug("Processing text input: #{String.length(text)} characters from #{source}")
+
+    # Update activity tracking
+    session = %{session | last_activity_at: DateTime.utc_now()}
+
+    # Send to stream manager if available
+    if session.stream_manager do
+      LivekitexAgent.StreamManager.process_data(
+        session.stream_manager,
+        :text,
+        text,
+        timestamp: timestamp
+      )
+    end
+
+    # Process text input similar to audio transcription
+    case source do
+      :user ->
+        # User text input - process like transcribed audio
+        session = handle_user_text_input(session, text, metadata)
+        emit_event(session, :text_received, %{
+          text: text,
+          source: source,
+          timestamp: timestamp,
+          metadata: metadata
+        })
+        {:noreply, session}
+
+      :system ->
+        # System text input - handle as system message
+        emit_event(session, :system_text_received, %{
+          text: text,
+          timestamp: timestamp,
+          metadata: metadata
+        })
+        {:noreply, session}
+
+      _ ->
+        # Other sources - just emit event
+        emit_event(session, :text_received, %{
+          text: text,
+          source: source,
+          timestamp: timestamp,
+          metadata: metadata
+        })
+        {:noreply, session}
+    end
+  end
+
   @impl true
   def handle_call(:get_conversation_state, _from, session) do
     conversation_info = %{
@@ -794,6 +983,119 @@ defmodule LivekitexAgent.AgentSession do
     session = %{session | room_id: room_id, last_activity_at: DateTime.utc_now()}
     emit_event(session, :room_id_updated, %{room_id: room_id})
     {:reply, :ok, session}
+  end
+
+  # Multi-modal support handle_call implementations
+
+  @impl true
+  def handle_call({:enable_video_stream, opts}, _from, session) do
+    video_format = Keyword.get(opts, :video_format, :h264)
+    resolution = Keyword.get(opts, :resolution, "720p")
+    fps = Keyword.get(opts, :fps, 30)
+    bitrate = Keyword.get(opts, :bitrate, 1000)
+
+    video_config = %{
+      format: video_format,
+      resolution: resolution,
+      fps: fps,
+      bitrate: bitrate,
+      enabled: true
+    }
+
+    # Initialize stream manager if not present
+    session = ensure_stream_manager(session)
+
+    # Add video stream to stream manager
+    if session.stream_manager do
+      LivekitexAgent.StreamManager.add_stream(session.stream_manager, :video, video_config)
+    end
+
+    updated_session = %{
+      session
+      | video_stream: video_config,
+        last_activity_at: DateTime.utc_now()
+    }
+
+    emit_event(updated_session, :video_stream_enabled, video_config)
+    {:reply, :ok, updated_session}
+  end
+
+  @impl true
+  def handle_call(:disable_video_stream, _from, session) do
+    # Remove video stream from stream manager
+    if session.stream_manager do
+      LivekitexAgent.StreamManager.remove_stream(session.stream_manager, :video)
+    end
+
+    updated_session = %{
+      session
+      | video_stream: nil,
+        last_activity_at: DateTime.utc_now()
+    }
+
+    emit_event(updated_session, :video_stream_disabled, %{})
+    {:reply, :ok, updated_session}
+  end
+
+  @impl true
+  def handle_call(:get_multimodal_context, _from, session) do
+    context = %{
+      video_enabled: session.video_stream != nil,
+      text_enabled: session.text_stream != nil,
+      audio_enabled: true, # Always enabled
+      stream_manager: session.stream_manager != nil,
+      sync_state: session.sync_state || %{},
+      quality_config: session.quality_config || %{},
+      active_streams: get_active_streams(session)
+    }
+
+    {:reply, context, session}
+  end
+
+  @impl true
+  def handle_call({:update_stream_quality, stream_type, quality}, _from, session) do
+    if session.stream_manager do
+      case LivekitexAgent.StreamManager.update_quality(session.stream_manager, stream_type, quality) do
+        :ok ->
+          # Update local quality config
+          quality_config = Map.put(session.quality_config || %{}, stream_type, quality)
+          updated_session = %{session | quality_config: quality_config}
+
+          emit_event(updated_session, :stream_quality_updated, %{stream_type: stream_type, quality: quality})
+          {:reply, :ok, updated_session}
+
+        {:error, reason} ->
+          {:reply, {:error, reason}, session}
+      end
+    else
+      {:reply, {:error, :stream_manager_not_initialized}, session}
+    end
+  end
+
+  @impl true
+  def handle_call(:synchronize_streams, _from, session) do
+    if session.stream_manager do
+      # Trigger synchronization in stream manager
+      case LivekitexAgent.StreamManager.get_sync_status(session.stream_manager) do
+        sync_status ->
+          # Update sync state
+          updated_session = %{session | sync_state: sync_status}
+          emit_event(updated_session, :streams_synchronized, sync_status)
+          {:reply, :ok, updated_session}
+      end
+    else
+      {:reply, {:error, :stream_manager_not_initialized}, session}
+    end
+  end
+
+  @impl true
+  def handle_call(:get_sync_status, _from, session) do
+    if session.stream_manager do
+      sync_status = LivekitexAgent.StreamManager.get_sync_status(session.stream_manager)
+      {:reply, sync_status, session}
+    else
+      {:reply, {:error, :stream_manager_not_initialized}, session}
+    end
   end
 
   @impl true
@@ -1290,5 +1592,79 @@ defmodule LivekitexAgent.AgentSession do
           send(self(), {:tool_error, tool_name, reason})
       end
     end)
+  end
+
+  # Multi-modal helper functions
+
+  defp ensure_stream_manager(session) do
+    if session.stream_manager do
+      session
+    else
+      case LivekitexAgent.StreamManager.start_link(session_pid: self()) do
+        {:ok, manager_pid} ->
+          # Initialize default audio stream
+          LivekitexAgent.StreamManager.add_stream(manager_pid, :audio, %{
+            format: :pcm16,
+            sample_rate: 16000,
+            quality: :high
+          })
+
+          %{session | stream_manager: manager_pid}
+
+        {:error, reason} ->
+          Logger.error("Failed to start stream manager: #{inspect(reason)}")
+          session
+      end
+    end
+  end
+
+  defp get_active_streams(session) do
+    streams = []
+
+    streams = if session.video_stream, do: [:video | streams], else: streams
+    streams = if session.text_stream, do: [:text | streams], else: streams
+    streams = [:audio | streams] # Audio is always active
+
+    streams
+  end
+
+  defp handle_user_text_input(session, text, metadata) do
+    # Create a turn entry for text input
+    turn_id = generate_turn_id()
+
+    turn = %{
+      id: turn_id,
+      type: :text_input,
+      input_text: text,
+      started_at: DateTime.utc_now(),
+      metadata: Map.merge(metadata, %{source: :text})
+    }
+
+    # Update session state
+    session = %{
+      session
+      | current_turn: turn,
+        state: :processing,
+        conversation_state: Map.put(session.conversation_state || %{}, :last_text_input, text)
+    }
+
+    # Trigger LLM processing if configured
+    if session.llm_client do
+      # Add text to chat context
+      updated_context = session.chat_context ++ [
+        %{role: "user", content: text, timestamp: DateTime.utc_now()}
+      ]
+
+      session = %{session | chat_context: updated_context}
+
+      # Send to LLM for processing
+      send(session.llm_client, {:process_text, text, session.chat_context})
+    end
+
+    session
+  end
+
+  defp generate_turn_id do
+    :crypto.strong_rand_bytes(8) |> Base.encode64(padding: false)
   end
 end
