@@ -52,17 +52,17 @@
 
 ### Implementation for User Story 1
 
-- [ ] T015 [P] [US1] Enhance AgentSession with conversation state tracking in lib/livekitex_agent/agent_session.ex
-- [ ] T016 [P] [US1] Implement OpenAI provider integration for LLM in lib/livekitex_agent/providers/openai/llm.ex
-- [ ] T017 [P] [US1] Implement OpenAI STT provider in lib/livekitex_agent/providers/openai/stt.ex
-- [ ] T018 [P] [US1] Implement OpenAI TTS provider in lib/livekitex_agent/providers/openai/tts.ex
-- [ ] T019 [US1] Add session event callbacks system to AgentSession (depends on T015)
-- [ ] T020 [US1] Implement audio processing pipeline with PCM16 support in lib/livekitex_agent/media/audio_processor.ex
-- [ ] T021 [US1] Add WebRTC integration through livekitex in lib/livekitex_agent/realtime/webrtc_handler.ex
-- [ ] T022 [US1] Create connection manager for LiveKit rooms in lib/livekitex_agent/realtime/connection_manager.ex
-- [ ] T023 [US1] Add conversation turn management and state persistence to AgentSession
-- [ ] T024 [US1] Implement performance metrics collection in lib/livekitex_agent/telemetry/metrics.ex
-- [ ] T025 [US1] Create comprehensive examples in examples/minimal_realtime_assistant.exs
+- [X] T015 [P] [US1] Enhance AgentSession with conversation state tracking in lib/livekitex_agent/agent_session.ex
+- [X] T016 [P] [US1] Implement OpenAI provider integration for LLM in lib/livekitex_agent/providers/openai/llm.ex
+- [X] T017 [P] [US1] Implement OpenAI STT provider in lib/livekitex_agent/providers/openai/stt.ex
+- [X] T018 [P] [US1] Implement OpenAI TTS provider in lib/livekitex_agent/providers/openai/tts.ex
+- [X] T019 [US1] Add session event callbacks system to AgentSession (depends on T015)
+- [X] T020 [US1] Implement audio processing pipeline with PCM16 support in lib/livekitex_agent/media/audio_processor.ex
+- [X] T021 [US1] Add WebRTC integration through livekitex in lib/livekitex_agent/realtime/webrtc_handler.ex
+- [X] T022 [US1] Create connection manager for LiveKit rooms in lib/livekitex_agent/realtime/connection_manager.ex
+- [X] T023 [US1] Add conversation turn management and state persistence to AgentSession
+- [X] T024 [US1] Implement performance metrics collection in lib/livekitex_agent/telemetry/metrics.ex
+- [X] T025 [US1] Create comprehensive examples in examples/minimal_realtime_assistant.exs
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
@@ -76,15 +76,15 @@
 
 ### Implementation for User Story 2
 
-- [ ] T026 [P] [US2] Enhance FunctionTool module with improved macro system in lib/livekitex_agent/function_tool.ex
-- [ ] T027 [P] [US2] Implement automatic OpenAI schema generation in lib/livekitex_agent/function_tool.ex
-- [ ] T028 [P] [US2] Create RunContext with session access and user data in lib/livekitex_agent/run_context.ex
-- [ ] T029 [US2] Add parameter validation and type conversion to FunctionTool (depends on T026)
-- [ ] T030 [US2] Implement tool execution with timeout and error handling (depends on T028)
-- [ ] T031 [US2] Add tool registry integration with dynamic loading (depends on T007, T026)
-- [ ] T032 [US2] Create comprehensive tool examples in lib/livekitex_agent/example_tools.ex
-- [ ] T033 [US2] Add tool testing utilities in CLI for development
-- [ ] T034 [US2] Update examples with custom tool integration in examples/weather_agent.exs
+- [X] T026 [P] [US2] Enhance FunctionTool module with improved macro system in lib/livekitex_agent/function_tool.ex
+- [X] T027 [P] [US2] Implement automatic OpenAI schema generation in lib/livekitex_agent/function_tool.ex
+- [X] T028 [P] [US2] Create RunContext with session access and user data in lib/livekitex_agent/run_context.ex
+- [X] T029 [US2] Add parameter validation and type conversion to FunctionTool (depends on T026)
+- [X] T030 [US2] Implement tool execution with timeout and error handling (depends on T028)
+- [X] T031 [US2] Add tool registry integration with dynamic loading (depends on T007, T026)
+- [X] T032 [US2] Create comprehensive tool examples in lib/livekitex_agent/example_tools.ex
+- [X] T033 [US2] Add tool testing utilities in CLI for development
+- [X] T034 [US2] Update examples with custom tool integration in examples/weather_agent.exs
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 

@@ -144,6 +144,18 @@ defmodule LivekitexAgent.CLI do
       "test" ->
         run_tests(opts, args)
 
+      "tools" ->
+        handle_tools_command(opts, args)
+
+      "test-tool" ->
+        test_single_tool(opts, args)
+
+      "list-tools" ->
+        list_registered_tools(opts)
+
+      "validate-tools" ->
+        validate_all_tools(opts)
+
       "config" ->
         show_configuration(opts)
 
@@ -476,5 +488,299 @@ defmodule LivekitexAgent.CLI do
       {:DOWN, _ref, :process, ^session_pid, reason} ->
         Logger.info("Agent session terminated: #{inspect(reason)}")
     end
+  end
+
+  # Tool Testing Commands
+
+  @doc """
+  Handles tool-related CLI commands.
+  """
+  def handle_tools_command(opts, args) do
+    case args do
+      ["list"] -> list_registered_tools(opts)
+      ["validate"] -> validate_all_tools(opts)
+      ["test", tool_name | test_args] -> test_single_tool_with_args(tool_name, test_args, opts)
+      ["discover", path] -> discover_tools_in_path(path, opts)
+      ["register", module_name] -> register_module_tools(module_name, opts)
+      [] -> show_tools_help()
+      _ -> show_tools_help()
+    end
+  end
+
+  @doc """
+  Lists all registered tools with their schemas.
+  """
+  def list_registered_tools(opts \\ []) do
+    verbose = Keyword.get(opts, :verbose, false)
+    format = Keyword.get(opts, :format, "table")
+
+    IO.puts("🔧 Registered Function Tools")
+    IO.puts(String.duplicate("=", 50))
+
+    case LivekitexAgent.ToolRegistry.list_tools() do
+      {:ok, tools} when length(tools) > 0 ->
+        if format == "json" do
+          tools
+          |> Enum.map(&tool_to_json/1)
+          |> Jason.encode!(pretty: true)
+          |> IO.puts()
+        else
+          Enum.each(tools, fn tool ->
+            print_tool_info(tool, verbose)
+          end)
+        end
+
+        IO.puts("\n✅ Found #{length(tools)} registered tools")
+
+      {:ok, []} ->
+        IO.puts("📭 No tools are currently registered")
+        IO.puts("\nTo register tools, run:")
+        IO.puts("  mix livekitex_agent tools register MyToolModule")
+
+      {:error, reason} ->
+        IO.puts("❌ Failed to list tools: #{inspect(reason)}")
+        System.halt(1)
+    end
+  end
+
+  @doc """
+  Tests a single tool with provided arguments.
+  """
+  def test_single_tool(opts, [tool_name | args]) do
+    test_single_tool_with_args(tool_name, args, opts)
+  end
+
+  def test_single_tool(_opts, []) do
+    IO.puts("❌ Tool name required")
+    IO.puts("Usage: mix livekitex_agent test-tool <tool_name> [arg1=value1] [arg2=value2]")
+    System.halt(1)
+  end
+
+  defp test_single_tool_with_args(tool_name, args, opts) do
+    IO.puts("🧪 Testing tool: #{tool_name}")
+    IO.puts(String.duplicate("-", 30))
+
+    # Parse arguments
+    parsed_args = parse_tool_arguments(args)
+
+    # Create test context
+    context = create_test_context(opts)
+
+    # Execute tool
+    start_time = System.monotonic_time(:millisecond)
+
+    result = LivekitexAgent.FunctionTool.execute_tool_safely(
+      tool_name,
+      parsed_args,
+      context,
+      timeout: Keyword.get(opts, :timeout, 30_000),
+      retry_attempts: Keyword.get(opts, :retry, 0)
+    )
+
+    duration = System.monotonic_time(:millisecond) - start_time
+
+    # Display results
+    print_test_result(tool_name, parsed_args, result, duration)
+  end
+
+  @doc """
+  Validates all registered tools.
+  """
+  def validate_all_tools(opts \\ []) do
+    IO.puts("🔍 Validating all registered tools...")
+    IO.puts(String.duplicate("=", 40))
+
+    case LivekitexAgent.ToolRegistry.list_tools() do
+      {:ok, tools} when length(tools) > 0 ->
+        results = Enum.map(tools, &validate_single_tool(&1, opts))
+
+        passed = Enum.count(results, &match?({:ok, _}, &1))
+        failed = length(results) - passed
+
+        IO.puts("\n📊 Validation Summary:")
+        IO.puts("  ✅ Passed: #{passed}")
+        IO.puts("  ❌ Failed: #{failed}")
+
+        if failed > 0 do
+          System.halt(1)
+        end
+
+      {:ok, []} ->
+        IO.puts("📭 No tools to validate")
+
+      {:error, reason} ->
+        IO.puts("❌ Failed to load tools: #{inspect(reason)}")
+        System.halt(1)
+    end
+  end
+
+  defp validate_single_tool(tool, opts) do
+    tool_name = tool.name
+
+    try do
+      # Check if module and function exist
+      unless Code.ensure_loaded?(tool.module) do
+        raise "Module #{tool.module} not found"
+      end
+
+      unless function_exported?(tool.module, tool.function, tool.arity) do
+        raise "Function #{tool.module}.#{tool.function}/#{tool.arity} not found"
+      end
+
+      # Validate schema
+      schema_valid = validate_tool_schema(tool.schema)
+      unless schema_valid do
+        raise "Invalid OpenAI schema"
+      end
+
+      IO.puts("  ✅ #{tool_name}: Valid")
+      {:ok, tool_name}
+
+    rescue
+      error ->
+        IO.puts("  ❌ #{tool_name}: #{Exception.message(error)}")
+        if Keyword.get(opts, :verbose, false) do
+          IO.puts("    #{Exception.format_stacktrace(Exception.format_stacktrace(__STACKTRACE__))}")
+        end
+        {:error, tool_name}
+    end
+  end
+
+  defp discover_tools_in_path(path, opts) do
+    IO.puts("🔍 Discovering tools in: #{path}")
+
+    count = LivekitexAgent.FunctionTool.discover_and_register_tools(path, opts)
+
+    IO.puts("✅ Discovered and registered #{count} tool modules")
+  end
+
+  defp register_module_tools(module_name, opts) do
+    try do
+      module = String.to_existing_atom("Elixir.#{module_name}")
+
+      case LivekitexAgent.FunctionTool.register_module(module, opts) do
+        {:ok, count} ->
+          IO.puts("✅ Registered #{count} tools from #{module_name}")
+
+        {:error, reason} ->
+          IO.puts("❌ Failed to register tools: #{inspect(reason)}")
+          System.halt(1)
+      end
+    rescue
+      ArgumentError ->
+        IO.puts("❌ Module not found: #{module_name}")
+        System.halt(1)
+    end
+  end
+
+  defp show_tools_help do
+    IO.puts("""
+    🔧 Tool Management Commands
+
+    Available commands:
+      tools list                    - List all registered tools
+      tools validate               - Validate all tool definitions
+      tools test <name> [args...]  - Test a specific tool
+      tools discover <path>        - Discover tools in directory
+      tools register <module>      - Register tools from module
+
+    Examples:
+      mix livekitex_agent tools list --verbose
+      mix livekitex_agent tools test get_weather location="New York"
+      mix livekitex_agent tools validate
+    """)
+  end
+
+  defp print_tool_info(tool, verbose) do
+    IO.puts("📋 #{tool.name}")
+    IO.puts("   Module: #{tool.module}")
+    IO.puts("   Function: #{tool.function}")
+
+    if verbose do
+      IO.puts("   Description: #{get_tool_description(tool)}")
+      IO.puts("   Parameters: #{inspect(tool.schema.function.parameters, pretty: true)}")
+      IO.puts("   Registered: #{tool.metadata[:registered_at] || "Unknown"}")
+    end
+
+    IO.puts("")
+  end
+
+  defp tool_to_json(tool) do
+    %{
+      name: tool.name,
+      module: to_string(tool.module),
+      function: to_string(tool.function),
+      description: get_tool_description(tool),
+      schema: tool.schema,
+      metadata: tool.metadata
+    }
+  end
+
+  defp get_tool_description(tool) do
+    get_in(tool.schema, [:function, :description]) || "No description available"
+  end
+
+  defp parse_tool_arguments(args) do
+    args
+    |> Enum.map(fn arg ->
+      case String.split(arg, "=", parts: 2) do
+        [key, value] -> {key, parse_argument_value(value)}
+        [key] -> {key, true}
+      end
+    end)
+    |> Enum.into(%{})
+  end
+
+  defp parse_argument_value(value) do
+    cond do
+      value == "true" -> true
+      value == "false" -> false
+      String.match?(value, ~r/^\d+$/) -> String.to_integer(value)
+      String.match?(value, ~r/^\d+\.\d+$/) -> String.to_float(value)
+      String.starts_with?(value, "[") or String.starts_with?(value, "{") ->
+        case Jason.decode(value) do
+          {:ok, parsed} -> parsed
+          _ -> value
+        end
+      true -> value
+    end
+  end
+
+  defp create_test_context(opts) do
+    test_data = %{
+      test_mode: true,
+      user_id: "test_user",
+      session_id: "test_session"
+    }
+
+    LivekitexAgent.RunContext.new(
+      session: nil,
+      user_data: test_data,
+      metadata: %{cli_test: true, opts: opts}
+    )
+  end
+
+  defp print_test_result(tool_name, args, result, duration) do
+    IO.puts("Arguments: #{inspect(args, pretty: true)}")
+    IO.puts("Duration: #{duration}ms")
+    IO.puts("")
+
+    case result do
+      {:ok, output} ->
+        IO.puts("✅ Success!")
+        IO.puts("Result: #{inspect(output, pretty: true)}")
+
+      {:error, reason} ->
+        IO.puts("❌ Failed!")
+        IO.puts("Error: #{inspect(reason, pretty: true)}")
+    end
+  end
+
+  defp validate_tool_schema(schema) do
+    required_keys = [:type, :function]
+    function_keys = [:name, :description]
+
+    Enum.all?(required_keys, &Map.has_key?(schema, &1)) and
+      Enum.all?(function_keys, &Map.has_key?(schema.function, &1))
   end
 end
