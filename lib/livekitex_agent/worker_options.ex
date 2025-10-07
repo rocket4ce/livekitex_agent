@@ -101,6 +101,170 @@ defmodule LivekitexAgent.WorkerOptions do
         }
 
   @doc """
+  Resolves configuration from Application environment with fallback defaults.
+
+  Enables zero-configuration Phoenix integration by reading from Application
+  config and applying sensible defaults for missing values.
+
+  ## Parameters
+  - `app_name` (atom): Application name to read config from (defaults to :livekitex_agent)
+
+  ## Returns
+  - `WorkerOptions.t()`: Fully resolved and validated configuration
+
+  ## Configuration
+  Configuration is read from Application environment:
+
+      config :livekitex_agent,
+        default_worker_options: [
+          worker_pool_size: 8,
+          agent_name: "my_phoenix_agent",
+          server_url: "ws://localhost:7880"
+        ]
+
+  ## Examples
+      # With user config
+      config :livekitex_agent, default_worker_options: [worker_pool_size: 8]
+      opts = WorkerOptions.from_config()
+      # => %WorkerOptions{worker_pool_size: 8, entry_point: &auto_entry_point/1, ...}
+
+      # Zero configuration
+      opts = WorkerOptions.from_config()
+      # => %WorkerOptions{worker_pool_size: 4, entry_point: &auto_entry_point/1, ...}
+  """
+  def from_config(app_name \\ :livekitex_agent) do
+    user_config = Application.get_env(app_name, :default_worker_options, [])
+
+    user_config
+    |> with_defaults()
+    |> new()
+    |> validate!()
+  end
+
+  @doc """
+  Merges partial configuration with hard-coded defaults.
+
+  Provides complete configuration by filling in missing values with sensible
+  defaults while preserving user-provided values.
+
+  ## Parameters
+  - `partial_opts` (keyword): User-provided configuration (can be partial)
+
+  ## Returns
+  - `keyword()`: Complete configuration with defaults applied
+
+  ## Examples
+      iex> WorkerOptions.with_defaults([worker_pool_size: 4])
+      [worker_pool_size: 4, timeout: 300_000, entry_point: &auto_entry_point/1, ...]
+
+      iex> WorkerOptions.with_defaults([])
+      [worker_pool_size: 4, timeout: 300_000, entry_point: &auto_entry_point/1, ...]
+  """
+  def with_defaults(partial_opts) when is_list(partial_opts) do
+    defaults = [
+      entry_point: &LivekitexAgent.ExampleTools.auto_entry_point/1,
+      request_handler: &default_request_handler/1,
+      job_executor_type: :process,
+      memory_limit: 512,
+      timeout: 300_000,
+      load_threshold: 0.8,
+      load_calculator: &default_load_calculator/0,
+      server_url: "ws://localhost:7880",
+      api_key: "",
+      api_secret: "",
+      agent_name: "elixir_agent",
+      permissions: [:room_join, :room_admin],
+      worker_type: :voice_agent,
+      worker_id: generate_worker_id(),
+      metadata: %{},
+      health_check_interval: 30_000,
+      max_concurrent_jobs: 10,
+      graceful_shutdown_timeout: 30_000,
+      log_level: :info,
+      load_balancer_strategy: :load_based,
+      worker_pool_size: System.schedulers_online(),
+      job_queue_size: 1000,
+      circuit_breaker_config: nil,
+      auto_scaling_enabled: false,
+      scaling_metrics_window: 300_000,
+      min_workers: 1,
+      max_workers: System.schedulers_online() * 4,
+      cpu_threshold: 0.8,
+      memory_threshold: 0.85,
+      queue_threshold: 0.9,
+      backpressure_enabled: true,
+      rate_limiting_config: nil
+    ]
+
+    Keyword.merge(defaults, partial_opts)
+  end
+
+  @doc """
+  Validates WorkerOptions configuration and raises on errors.
+
+  Provides comprehensive validation with clear error messages and suggested
+  fixes for common configuration mistakes.
+
+  ## Parameters
+  - `opts` (WorkerOptions.t()): Configuration to validate
+
+  ## Returns
+  - `WorkerOptions.t()`: Same struct if valid
+
+  ## Raises
+  - `ArgumentError`: For invalid configuration values with specific guidance
+
+  ## Examples
+      iex> opts = %WorkerOptions{worker_pool_size: -1}
+      iex> WorkerOptions.validate!(opts)
+      ** (ArgumentError) Invalid worker_pool_size: -1. Must be positive integer. Suggested: 4
+
+      iex> opts = %WorkerOptions{worker_pool_size: 4}
+      iex> WorkerOptions.validate!(opts)
+      %WorkerOptions{worker_pool_size: 4, ...}
+  """
+  def validate!(%__MODULE__{} = options) do
+    case validate(options) do
+      {:ok, validated_options} ->
+        validated_options
+
+      {:error, :invalid_entry_point} ->
+        raise ArgumentError, """
+        Invalid entry_point: must be a function that accepts 1 argument.
+        Suggested: Add an entry_point function to handle jobs.
+        Example: entry_point: &MyModule.handle_job/1
+        """
+
+      {:error, :invalid_worker_pool_size} ->
+        raise ArgumentError, """
+        Invalid worker_pool_size: #{inspect(options.worker_pool_size)}. Must be positive integer.
+        Suggested: worker_pool_size: #{System.schedulers_online()}
+        """
+
+      {:error, :invalid_timeout} ->
+        raise ArgumentError, """
+        Invalid timeout: #{inspect(options.timeout)}. Must be positive integer (milliseconds).
+        Suggested: timeout: 300_000 (5 minutes)
+        """
+
+      {:error, :invalid_server_url} ->
+        raise ArgumentError, """
+        Invalid server_url: #{inspect(options.server_url)}. Must be valid URL string.
+        Suggested: server_url: "ws://localhost:7880" or "wss://your-domain.livekit.cloud"
+        """
+
+      {:error, :invalid_max_concurrent_jobs} ->
+        raise ArgumentError, """
+        Invalid max_concurrent_jobs: #{inspect(options.max_concurrent_jobs)}. Must be positive integer.
+        Suggested: max_concurrent_jobs: 10
+        """
+
+      {:error, error} ->
+        raise ArgumentError, "Invalid WorkerOptions: #{inspect(error)}"
+    end
+  end
+
+  @doc """
   Creates new worker options with the given configuration.
 
   ## Options
@@ -182,7 +346,8 @@ defmodule LivekitexAgent.WorkerOptions do
       validate_server_url(options.server_url),
       validate_max_concurrent_jobs(options.max_concurrent_jobs),
       validate_worker_type(options.worker_type),
-      validate_log_level(options.log_level)
+      validate_log_level(options.log_level),
+      validate_worker_pool_size(options.worker_pool_size)
     ]
 
     case Enum.find(validations, &(elem(&1, 0) == :error)) do
@@ -421,6 +586,9 @@ defmodule LivekitexAgent.WorkerOptions do
        do: {:ok, :valid}
 
   defp validate_log_level(_), do: {:error, :invalid_log_level}
+
+  defp validate_worker_pool_size(size) when is_integer(size) and size > 0, do: {:ok, :valid}
+  defp validate_worker_pool_size(_), do: {:error, :invalid_worker_pool_size}
 
   defp generate_worker_id do
     hostname = :inet.gethostname() |> elem(1) |> to_string()

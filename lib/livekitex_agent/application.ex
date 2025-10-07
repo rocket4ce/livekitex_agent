@@ -49,8 +49,8 @@ defmodule LivekitexAgent.Application do
       # Graceful shutdown management
       {LivekitexAgent.ShutdownManager, []},
 
-      # Worker management
-      {LivekitexAgent.WorkerManager, []},
+      # Worker management with resolved configuration
+      {LivekitexAgent.WorkerManager, resolve_worker_options()},
 
       # Health monitoring (if enabled)
       maybe_health_server(),
@@ -79,6 +79,33 @@ defmodule LivekitexAgent.Application do
   defp get_health_port do
     Application.get_env(:livekitex_agent, :default_worker_options, [])
     |> Keyword.get(:health_check_port, 8080)
+  end
+
+  # Resolve WorkerOptions for Phoenix integration
+  defp resolve_worker_options do
+    try do
+      LivekitexAgent.WorkerOptions.from_config()
+    rescue
+      error ->
+        Logger.error("""
+        Failed to resolve WorkerOptions configuration: #{inspect(error)}
+
+        This error occurs when livekitex_agent cannot initialize properly.
+        To fix this:
+        1. Ensure your config.exs has proper configuration
+        2. Check that all required dependencies are available
+        3. Verify your entry_point function is valid
+
+        Falling back to minimal configuration...
+        """)
+
+        # Fallback to minimal configuration to prevent startup crash
+        LivekitexAgent.WorkerOptions.new([
+          entry_point: &LivekitexAgent.ExampleTools.auto_entry_point/1,
+          worker_pool_size: System.schedulers_online(),
+          agent_name: "emergency_fallback_agent"
+        ])
+    end
   end
 
   # Post-startup initialization

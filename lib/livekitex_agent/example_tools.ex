@@ -13,6 +13,54 @@ defmodule LivekitexAgent.ExampleTools do
   use LivekitexAgent.FunctionTool
   require Logger
 
+  @doc """
+  Auto-generated entry point function for Phoenix integration.
+
+  This function is automatically used when no explicit entry_point is configured,
+  enabling zero-configuration Phoenix integration. It provides basic job handling
+  with logging for development purposes.
+
+  ## Parameters
+  - `job_context` (LivekitexAgent.JobContext.t()): Job context containing room info and metadata
+
+  ## Returns
+  - `:ok`: Indicates successful job handling
+
+  ## Example
+      # Automatically used in WorkerOptions.from_config/0
+      opts = WorkerOptions.from_config()
+      # => %WorkerOptions{entry_point: &LivekitexAgent.ExampleTools.auto_entry_point/1, ...}
+
+      # Can be used explicitly
+      LivekitexAgent.ExampleTools.auto_entry_point(job_context)
+  """
+  @spec auto_entry_point(LivekitexAgent.JobContext.t()) :: :ok
+  def auto_entry_point(%LivekitexAgent.JobContext{} = job_context) do
+    Logger.info("Auto-generated entry point handling job: #{inspect(job_context.job_request)}")
+
+    # Extract basic job information
+    room_name = job_context.room_name || "unknown_room"
+    participant_count = length(job_context.participants || [])
+
+    Logger.info("""
+    Phoenix Integration Job Handler:
+    - Room: #{room_name}
+    - Participants: #{participant_count}
+    - Agent ready for custom implementation
+
+    To customize this behavior, provide your own entry_point:
+    config :livekitex_agent, default_worker_options: [
+      entry_point: &MyAgent.handle_job/1
+    ]
+    """)
+
+    # Simulate basic job processing
+    :timer.sleep(1000)
+
+    Logger.info("Auto-generated entry point completed successfully")
+    :ok
+  end
+
   @spec get_weather(String.t()) :: String.t()
   def get_weather(location) do
     # Mock weather API call
