@@ -420,7 +420,7 @@ defmodule LivekitexAgent.ToolRegistry do
     rescue
       e ->
         Logger.error("Tool execution error: #{inspect(e)}")
-        {:error, {:execution_failed, e.message}}
+        {:error, {:execution_failed, Exception.message(e)}}
     catch
       :exit, reason ->
         Logger.error("Tool execution exit: #{inspect(reason)}")

@@ -159,7 +159,7 @@ defmodule LivekitexAgent.Providers.Provider do
       provider_module.process(request, state)
     rescue
       e ->
-        {:error, {:provider_error, e.message}}
+        {:error, {:provider_error, Exception.message(e)}}
     catch
       :exit, reason ->
         {:error, {:provider_exit, reason}}
@@ -178,7 +178,7 @@ defmodule LivekitexAgent.Providers.Provider do
           status: :unhealthy,
           latency_ms: nil,
           last_check: DateTime.utc_now(),
-          error: e.message
+          error: Exception.message(e)
         }
     catch
       :exit, reason ->

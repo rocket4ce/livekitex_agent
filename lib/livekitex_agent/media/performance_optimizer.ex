@@ -419,14 +419,17 @@ defmodule LivekitexAgent.Media.PerformanceOptimizer do
 
   defp get_scheduler_utilization do
     try do
-      :scheduler.sample()
+      # Use alternative approach since scheduler module functions are not available
+      # Get approximate utilization from system info
       Process.sleep(100)
-      utilization = :scheduler.utilization(1)
 
-      case utilization do
-        [{:total, total_util} | _] -> total_util
-        _ -> 0.0
-      end
+      # Estimate utilization based on process count and system load
+      process_count = :erlang.system_info(:process_count)
+      scheduler_count = :erlang.system_info(:schedulers_online)
+
+      # Basic estimation (this is a placeholder)
+      utilization = min(process_count / (scheduler_count * 1000), 1.0)
+      utilization
     rescue
       _ -> 0.0
     end

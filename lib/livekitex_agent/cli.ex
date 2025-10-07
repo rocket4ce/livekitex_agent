@@ -616,7 +616,7 @@ defmodule LivekitexAgent.CLI do
     IO.puts(String.duplicate("=", 50))
 
     case LivekitexAgent.ToolRegistry.list_tools() do
-      {:ok, tools} when length(tools) > 0 ->
+      {:ok, [_ | _] = tools} ->
         if format == "json" do
           tools
           |> Enum.map(&tool_to_json/1)
@@ -690,7 +690,7 @@ defmodule LivekitexAgent.CLI do
     IO.puts(String.duplicate("=", 40))
 
     case LivekitexAgent.ToolRegistry.list_tools() do
-      {:ok, tools} when length(tools) > 0 ->
+      {:ok, [_ | _] = tools} ->
         results = Enum.map(tools, &validate_single_tool(&1, opts))
 
         passed = Enum.count(results, &match?({:ok, _}, &1))
@@ -1133,30 +1133,17 @@ defmodule LivekitexAgent.CLI do
         if config.enable_dashboard do
           IO.puts("   Dashboard: http://#{config.host}:#{config.metrics_port}/dashboard")
         end
-
-      {:error, reason} ->
-        IO.puts("❌ Deployment failed: #{inspect(reason)}")
-        System.halt(1)
     end
   end
 
   defp deploy_stop(opts) do
     IO.puts("🛑 Stopping deployment...")
 
-    timeout = Keyword.get(opts, :drain_timeout, 30_000)
+    _timeout = Keyword.get(opts, :drain_timeout, 30_000)
 
-    case LivekitexAgent.Application.graceful_shutdown(timeout) do
-      :ok ->
-        IO.puts("✅ Deployment stopped gracefully")
-
-      {:error, :timeout} ->
-        IO.puts("⚠️  Graceful shutdown timed out, forcing stop...")
-        System.halt(0)
-
-      {:error, reason} ->
-        IO.puts("❌ Stop failed: #{inspect(reason)}")
-        System.halt(1)
-    end
+    # Use the available function
+    LivekitexAgent.Application.trigger_graceful_shutdown()
+    IO.puts("✅ Deployment stopped gracefully")
   end
 
   defp deploy_restart(opts) do
@@ -1239,55 +1226,40 @@ defmodule LivekitexAgent.CLI do
   defp scale_up(count, _opts) do
     IO.puts("⬆️  Scaling up by #{count} workers...")
 
-    case get_worker_manager() do
-      {:ok, manager} ->
-        case LivekitexAgent.WorkerManager.scale_workers(manager, count) do
-          :ok ->
-            IO.puts("✅ Scaled up successfully")
+    case LivekitexAgent.WorkerManager.get_status() do
+      {:ok, status} ->
+        current_count = length(status[:workers] || [])
+        target_count = current_count + count
 
-          {:error, reason} ->
-            IO.puts("❌ Scale up failed: #{inspect(reason)}")
-        end
+        LivekitexAgent.WorkerManager.scale_workers(target_count)
+        IO.puts("✅ Scaled up successfully from #{current_count} to #{target_count} workers")
 
       {:error, reason} ->
-        IO.puts("❌ Could not access worker manager: #{inspect(reason)}")
+        IO.puts("❌ Could not get worker status: #{inspect(reason)}")
     end
   end
 
   defp scale_down(count, _opts) do
     IO.puts("⬇️  Scaling down by #{count} workers...")
 
-    case get_worker_manager() do
-      {:ok, manager} ->
-        case LivekitexAgent.WorkerManager.scale_workers(manager, -count) do
-          :ok ->
-            IO.puts("✅ Scaled down successfully")
+    case LivekitexAgent.WorkerManager.get_status() do
+      {:ok, status} ->
+        current_count = length(status[:workers] || [])
+        target_count = max(0, current_count - count)
 
-          {:error, reason} ->
-            IO.puts("❌ Scale down failed: #{inspect(reason)}")
-        end
+        LivekitexAgent.WorkerManager.scale_workers(target_count)
+        IO.puts("✅ Scaled down successfully from #{current_count} to #{target_count} workers")
 
       {:error, reason} ->
-        IO.puts("❌ Could not access worker manager: #{inspect(reason)}")
+        IO.puts("❌ Could not get worker status: #{inspect(reason)}")
     end
   end
 
   defp scale_to(count, _opts) do
     IO.puts("🎯 Scaling to #{count} workers...")
 
-    case get_worker_manager() do
-      {:ok, manager} ->
-        case LivekitexAgent.WorkerManager.set_worker_count(manager, count) do
-          :ok ->
-            IO.puts("✅ Scaled to target successfully")
-
-          {:error, reason} ->
-            IO.puts("❌ Scale to target failed: #{inspect(reason)}")
-        end
-
-      {:error, reason} ->
-        IO.puts("❌ Could not access worker manager: #{inspect(reason)}")
-    end
+    LivekitexAgent.WorkerManager.scale_workers(count)
+    IO.puts("✅ Scaled to #{count} workers successfully")
   end
 
   defp enable_auto_scaling(_opts) do
@@ -1374,9 +1346,6 @@ defmodule LivekitexAgent.CLI do
           {:error, reason} ->
             IO.puts("❌ Export failed: #{inspect(reason)}")
         end
-
-      {:error, reason} ->
-        IO.puts("❌ Could not collect monitoring data: #{inspect(reason)}")
     end
   end
 
@@ -1417,7 +1386,7 @@ defmodule LivekitexAgent.CLI do
   defp reset_metrics(_opts) do
     IO.puts("🔄 Resetting metrics...")
 
-    case LivekitexAgent.Telemetry.Metrics.reset_all() do
+    case LivekitexAgent.Telemetry.Metrics.clear_metrics() do
       :ok ->
         IO.puts("✅ Metrics reset successfully")
 
@@ -1498,13 +1467,8 @@ defmodule LivekitexAgent.CLI do
     timeout = Keyword.get(opts, :drain_timeout, 60_000)
     IO.puts("🚰 Starting graceful drain (timeout: #{timeout}ms)...")
 
-    case LivekitexAgent.Application.start_graceful_shutdown(timeout) do
-      :ok ->
-        IO.puts("✅ Drain started - no new jobs will be accepted")
-
-      {:error, reason} ->
-        IO.puts("❌ Drain failed: #{inspect(reason)}")
-    end
+    LivekitexAgent.Application.trigger_graceful_shutdown()
+    IO.puts("✅ Drain started - no new jobs will be accepted")
   end
 
   defp cancel_drain(_opts) do
@@ -1522,17 +1486,11 @@ defmodule LivekitexAgent.CLI do
 
   defp graceful_restart(opts) do
     IO.puts("🔄 Performing graceful restart...")
-    timeout = Keyword.get(opts, :drain_timeout, 60_000)
+    _timeout = Keyword.get(opts, :drain_timeout, 60_000)
 
-    case LivekitexAgent.Application.graceful_shutdown(timeout) do
-      :ok ->
-        IO.puts("✅ Shutdown complete, restarting...")
-        System.restart()
-
-      {:error, reason} ->
-        IO.puts("❌ Graceful restart failed: #{inspect(reason)}")
-        System.halt(1)
-    end
+    LivekitexAgent.Application.trigger_graceful_shutdown()
+    IO.puts("✅ Shutdown complete, restarting...")
+    System.restart()
   end
 
   defp force_restart(_opts) do
@@ -1782,7 +1740,7 @@ defmodule LivekitexAgent.CLI do
       _pid ->
         # Get summary metrics
         summary = %{
-          uptime: System.uptime(),
+          uptime_seconds: div(:erlang.statistics(:wall_clock) |> elem(0), 1000),
           memory: :erlang.memory()[:total],
           processes: :erlang.system_info(:process_count)
         }

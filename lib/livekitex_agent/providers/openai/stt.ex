@@ -19,7 +19,6 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
 
   @default_model "whisper-1"
   @api_base_url "https://api.openai.com/v1"
-  @supported_formats [:pcm16, :wav, :mp3, :m4a, :webm]
   # 25MB OpenAI limit
   @max_file_size 25 * 1024 * 1024
 
@@ -266,9 +265,6 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     case prepare_audio_for_api(audio_data, state.format, state.sample_rate) do
       {:ok, audio_file_data, content_type} ->
         make_transcription_request(state, audio_file_data, content_type)
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
@@ -277,9 +273,6 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     case pcm16_to_wav(audio_data, sample_rate) do
       {:ok, wav_data} ->
         {:ok, wav_data, "audio/wav"}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 

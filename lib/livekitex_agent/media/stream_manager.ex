@@ -108,7 +108,7 @@ defmodule LivekitexAgent.StreamManager do
   """
   @spec add_stream(pid(), stream_type(), stream_config()) :: :ok | {:error, term()}
   def add_stream(pid, stream_type, config) do
-    GenStage.call(pid, {:add_stream, stream_type, config})
+    GenServer.call(pid, {:add_stream, stream_type, config})
   end
 
   @doc """
@@ -116,7 +116,7 @@ defmodule LivekitexAgent.StreamManager do
   """
   @spec remove_stream(pid(), stream_type()) :: :ok | {:error, term()}
   def remove_stream(pid, stream_type) do
-    GenStage.call(pid, {:remove_stream, stream_type})
+    GenServer.call(pid, {:remove_stream, stream_type})
   end
 
   @doc """
@@ -261,7 +261,7 @@ defmodule LivekitexAgent.StreamManager do
   def handle_cast({:process_data, stream_type, data, timestamp}, state) do
     case Map.get(state.streams, stream_type) do
       nil ->
-        Logger.warn("Received data for unknown stream: #{stream_type}")
+        Logger.warning("Received data for unknown stream: #{stream_type}")
         {:noreply, state}
 
       _config ->

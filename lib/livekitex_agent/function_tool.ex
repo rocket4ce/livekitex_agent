@@ -415,7 +415,7 @@ defmodule LivekitexAgent.FunctionTool do
     tool_functions
   end
 
-  defp execute_tool_definition(tool, arguments, context, opts \\ [])
+  defp execute_tool_definition(tool, arguments, context, opts)
 
   defp execute_tool_definition(tool, arguments, context, opts) do
     timeout = Keyword.get(opts, :timeout, 60_000)

@@ -328,7 +328,7 @@ defmodule LivekitexAgent.Worker do
             duration_ms: duration
           )
 
-          {:reply, {:error, e.message}, new_state}
+          {:reply, {:error, Exception.message(e)}, new_state}
       end
     end
   end

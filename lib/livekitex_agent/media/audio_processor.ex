@@ -40,7 +40,6 @@ defmodule LivekitexAgent.Media.AudioProcessor do
 
   use GenServer
   require Logger
-  use Bitwise
 
   @default_sample_rate 16_000
   @default_channels 1
@@ -283,69 +282,6 @@ defmodule LivekitexAgent.Media.AudioProcessor do
   end
 
   @impl true
-  def handle_call(:get_output_chunk, _from, state) do
-    case :queue.out(state.output_buffer) do
-      {{:value, chunk}, new_buffer} ->
-        new_state = %{state | output_buffer: new_buffer}
-        {:reply, {:ok, chunk}, new_state}
-
-      {:empty, _buffer} ->
-        {:reply, {:error, :no_chunks_available}, state}
-    end
-  end
-
-  @impl true
-  def handle_call({:get_output_chunks, count}, _from, state) do
-    {chunks, new_buffer} = extract_chunks(state.output_buffer, count, [])
-    new_state = %{state | output_buffer: new_buffer}
-    {:reply, chunks, new_state}
-  end
-
-  @impl true
-  def handle_call({:convert_to_pcm16, raw_data, source_format}, _from, state) do
-    try do
-      converted_data = perform_format_conversion(raw_data, source_format, pcm16_format(state))
-      {:reply, {:ok, converted_data}, state}
-    rescue
-      e ->
-        {:reply, {:error, {:conversion_failed, e.message}}, state}
-    end
-  end
-
-  @impl true
-  def handle_call({:register_callback, event, callback}, _from, state) do
-    new_callbacks = Map.put(state.callbacks, event, callback)
-    new_state = %{state | callbacks: new_callbacks}
-    {:reply, :ok, new_state}
-  end
-
-  @impl true
-  def handle_call(:get_metrics, _from, state) do
-    {:reply, state.metrics, state}
-  end
-
-  @impl true
-  def handle_call(:clear_buffers, _from, state) do
-    new_state = %{state | input_buffer: :queue.new(), output_buffer: :queue.new()}
-    {:reply, :ok, new_state}
-  end
-
-  @impl true
-  def handle_call({:update_config, new_config}, _from, state) do
-    new_state = %{
-      state
-      | sample_rate: Map.get(new_config, :sample_rate, state.sample_rate),
-        channels: Map.get(new_config, :channels, state.channels),
-        chunk_duration_ms: Map.get(new_config, :chunk_duration_ms, state.chunk_duration_ms),
-        buffer_size_ms: Map.get(new_config, :buffer_size_ms, state.buffer_size_ms),
-        processing_enabled: Map.get(new_config, :enable_processing, state.processing_enabled)
-    }
-
-    Logger.info("AudioProcessor config updated")
-    {:reply, :ok, new_state}
-  end
-
-  @impl true
   def handle_cast({:process_pcm16, pcm16_data, sample_rate}, state) do
     start_time = System.monotonic_time(:microsecond)
 
@@ -386,6 +322,69 @@ defmodule LivekitexAgent.Media.AudioProcessor do
   end
 
   @impl true
+  def handle_call(:get_output_chunk, _from, state) do
+    case :queue.out(state.output_buffer) do
+      {{:value, chunk}, new_buffer} ->
+        new_state = %{state | output_buffer: new_buffer}
+        {:reply, {:ok, chunk}, new_state}
+
+      {:empty, _buffer} ->
+        {:reply, {:error, :no_chunks_available}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:get_output_chunks, count}, _from, state) do
+    {chunks, new_buffer} = extract_chunks(state.output_buffer, count, [])
+    new_state = %{state | output_buffer: new_buffer}
+    {:reply, chunks, new_state}
+  end
+
+  @impl true
+  def handle_call({:convert_to_pcm16, raw_data, source_format}, _from, state) do
+    try do
+      converted_data = perform_format_conversion(raw_data, source_format, pcm16_format(state))
+      {:reply, {:ok, converted_data}, state}
+    rescue
+      e ->
+        {:reply, {:error, {:conversion_failed, Exception.message(e)}}, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:register_callback, event, callback}, _from, state) do
+    new_callbacks = Map.put(state.callbacks, event, callback)
+    new_state = %{state | callbacks: new_callbacks}
+    {:reply, :ok, new_state}
+  end
+
+  @impl true
+  def handle_call(:get_metrics, _from, state) do
+    {:reply, state.metrics, state}
+  end
+
+  @impl true
+  def handle_call(:clear_buffers, _from, state) do
+    new_state = %{state | input_buffer: :queue.new(), output_buffer: :queue.new()}
+    {:reply, :ok, new_state}
+  end
+
+  @impl true
+  def handle_call({:update_config, new_config}, _from, state) do
+    new_state = %{
+      state
+      | sample_rate: Map.get(new_config, :sample_rate, state.sample_rate),
+        channels: Map.get(new_config, :channels, state.channels),
+        chunk_duration_ms: Map.get(new_config, :chunk_duration_ms, state.chunk_duration_ms),
+        buffer_size_ms: Map.get(new_config, :buffer_size_ms, state.buffer_size_ms),
+        processing_enabled: Map.get(new_config, :enable_processing, state.processing_enabled)
+    }
+
+    Logger.info("AudioProcessor config updated")
+    {:reply, :ok, new_state}
+  end
+
+  @impl true
   def handle_call({:validate_pcm16, pcm16_data}, _from, state) do
     validation_result = validate_pcm16_format(pcm16_data)
     {:reply, validation_result, state}
@@ -399,7 +398,7 @@ defmodule LivekitexAgent.Media.AudioProcessor do
     rescue
       e ->
         Logger.error("PCM16 resampling error: #{inspect(e)}")
-        {:reply, {:error, {:resampling_failed, e.message}}, state}
+        {:reply, {:error, {:resampling_failed, Exception.message(e)}}, state}
     end
   end
 
@@ -411,7 +410,7 @@ defmodule LivekitexAgent.Media.AudioProcessor do
     rescue
       e ->
         Logger.error("Audio enhancement error: #{inspect(e)}")
-        {:reply, {:error, {:enhancement_failed, e.message}}, state}
+        {:reply, {:error, {:enhancement_failed, Exception.message(e)}}, state}
     end
   end
 

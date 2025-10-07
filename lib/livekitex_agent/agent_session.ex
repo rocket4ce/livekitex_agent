@@ -1720,8 +1720,4 @@ defmodule LivekitexAgent.AgentSession do
 
     session
   end
-
-  defp generate_turn_id do
-    :crypto.strong_rand_bytes(8) |> Base.encode64(padding: false)
-  end
 end

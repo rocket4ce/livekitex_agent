@@ -109,7 +109,9 @@ defmodule LivekitexAgent.Agent do
   @doc """
   Starts the agent as a GenServer.
   """
-  def start_link({:ok, agent}, opts \\ []) do
+  def start_link(result, opts \\ [])
+
+  def start_link({:ok, agent}, opts) do
     GenServer.start_link(__MODULE__, agent, opts)
   end
 
