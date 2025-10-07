@@ -55,12 +55,12 @@ defmodule LivekitexAgent.Agent do
         }
 
   @type state_transition ::
-    {:created, :configured} |
-    {:configured, :active} |
-    {:active, :inactive} |
-    {:inactive, :active} |
-    {:configured, :inactive} |
-    {atom(), :destroyed}
+          {:created, :configured}
+          | {:configured, :active}
+          | {:active, :inactive}
+          | {:inactive, :active}
+          | {:configured, :inactive}
+          | {atom(), :destroyed}
 
   @doc """
   Creates a new agent with the given configuration.
@@ -398,34 +398,40 @@ defmodule LivekitexAgent.Agent do
   end
 
   defp apply_configuration(agent, config) do
-    %{agent |
-      llm_config: Map.get(config, :llm_config, agent.llm_config),
-      stt_config: Map.get(config, :stt_config, agent.stt_config),
-      tts_config: Map.get(config, :tts_config, agent.tts_config),
-      vad_config: Map.get(config, :vad_config, agent.vad_config),
-      metadata: Map.merge(agent.metadata, Map.get(config, :metadata, %{})),
-      updated_at: DateTime.utc_now()
+    %{
+      agent
+      | llm_config: Map.get(config, :llm_config, agent.llm_config),
+        stt_config: Map.get(config, :stt_config, agent.stt_config),
+        tts_config: Map.get(config, :tts_config, agent.tts_config),
+        vad_config: Map.get(config, :vad_config, agent.vad_config),
+        metadata: Map.merge(agent.metadata, Map.get(config, :metadata, %{})),
+        updated_at: DateTime.utc_now()
     }
   end
 
   defp record_error(agent, error) do
-    %{agent |
-      error_count: agent.error_count + 1,
-      last_error: to_string(error),
-      updated_at: DateTime.utc_now()
+    %{
+      agent
+      | error_count: agent.error_count + 1,
+        last_error: to_string(error),
+        updated_at: DateTime.utc_now()
     }
   end
 
   defp trigger_callback(agent, event) do
     case Map.get(agent.event_callbacks, event) do
-      nil -> :ok
+      nil ->
+        :ok
+
       callback when is_function(callback, 2) ->
         try do
           callback.(agent, event)
         rescue
           e -> Logger.error("Error in agent callback: #{inspect(e)}")
         end
-      _ -> Logger.warning("Invalid callback for event: #{event}")
+
+      _ ->
+        Logger.warning("Invalid callback for event: #{event}")
     end
   end
 end

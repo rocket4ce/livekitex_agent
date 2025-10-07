@@ -51,7 +51,8 @@ defmodule LivekitexAgent.WorkerOptions do
   @type worker_type :: :voice_agent | :multimodal_agent | :text_agent | :custom
   @type log_level ::
           :emergency | :alert | :critical | :error | :warning | :notice | :info | :debug
-  @type load_balancer_strategy :: :round_robin | :least_connections | :weighted_round_robin | :load_based
+  @type load_balancer_strategy ::
+          :round_robin | :least_connections | :weighted_round_robin | :load_based
   @type circuit_breaker_config :: %{
           failure_threshold: pos_integer(),
           timeout: pos_integer(),
@@ -332,8 +333,8 @@ defmodule LivekitexAgent.WorkerOptions do
 
     cond do
       cpu_load > options.cpu_threshold or
-      memory_load > options.memory_threshold or
-      queue_load > options.queue_threshold ->
+        memory_load > options.memory_threshold or
+          queue_load > options.queue_threshold ->
         {:scale_up, %{cpu: cpu_load, memory: memory_load, queue: queue_load}}
 
       current_load < 0.3 and cpu_load < 0.4 and memory_load < 0.4 ->
@@ -479,6 +480,7 @@ defmodule LivekitexAgent.WorkerOptions do
     # Estimate queue load based on message queue lengths
     try do
       processes = Process.list()
+
       total_queue_len =
         processes
         |> Enum.map(fn pid ->
@@ -526,9 +528,9 @@ defmodule LivekitexAgent.WorkerOptions do
     queue_load = get_queue_load()
     connection_load = get_connection_load()
 
-    (cpu_load * cpu_weight) +
-    (memory_load * memory_weight) +
-    (queue_load * queue_weight) +
-    (connection_load * connection_weight)
+    cpu_load * cpu_weight +
+      memory_load * memory_weight +
+      queue_load * queue_weight +
+      connection_load * connection_weight
   end
 end

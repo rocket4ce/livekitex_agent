@@ -114,7 +114,9 @@ defmodule LivekitexAgent.WorkerManager do
       shutdown_initiated: false
     }
 
-    Logger.info("Worker manager started for agent: #{worker_options.agent_name} with #{map_size(worker_pool)} workers")
+    Logger.info(
+      "Worker manager started for agent: #{worker_options.agent_name} with #{map_size(worker_pool)} workers"
+    )
 
     {:ok, state}
   end
@@ -137,9 +139,8 @@ defmodule LivekitexAgent.WorkerManager do
             {:reject, reason} ->
               # Handle backpressure by queueing if enabled
               if state.worker_options.backpressure_enabled and
-                 reason in [:load_too_high, :max_jobs_reached] and
-                 :queue.len(state.job_queue) < state.worker_options.job_queue_size do
-
+                   reason in [:load_too_high, :max_jobs_reached] and
+                   :queue.len(state.job_queue) < state.worker_options.job_queue_size do
                 queued_job = {job_request, priority, System.monotonic_time()}
                 job_queue = enqueue_job(state.job_queue, queued_job, priority)
                 state = %{state | job_queue: job_queue}
@@ -203,6 +204,7 @@ defmodule LivekitexAgent.WorkerManager do
       max_size: state.worker_options.job_queue_size,
       is_full: :queue.len(state.job_queue) >= state.worker_options.job_queue_size
     }
+
     {:reply, queue_status, state}
   end
 
@@ -221,7 +223,10 @@ defmodule LivekitexAgent.WorkerManager do
       target_count < current_count ->
         # Scale down
         workers_to_stop = current_count - target_count
-        {stopped_workers, remaining_workers} = stop_excess_workers(state.worker_pool, workers_to_stop)
+
+        {stopped_workers, remaining_workers} =
+          stop_excess_workers(state.worker_pool, workers_to_stop)
+
         state = %{state | worker_pool: remaining_workers}
         Logger.info("Scaled down to #{target_count} workers (stopped #{length(stopped_workers)})")
 
@@ -239,19 +244,30 @@ defmodule LivekitexAgent.WorkerManager do
       case LivekitexAgent.WorkerOptions.should_scale?(state.worker_options) do
         {:scale_up, metrics} ->
           current_count = map_size(state.worker_pool)
-          recommended_count = LivekitexAgent.WorkerOptions.get_recommended_worker_count(state.worker_options)
+
+          recommended_count =
+            LivekitexAgent.WorkerOptions.get_recommended_worker_count(state.worker_options)
 
           if recommended_count > current_count do
-            Logger.info("Auto-scaling up: #{current_count} -> #{recommended_count}, metrics: #{inspect(metrics)}")
+            Logger.info(
+              "Auto-scaling up: #{current_count} -> #{recommended_count}, metrics: #{inspect(metrics)}"
+            )
+
             GenServer.cast(self(), {:scale_workers, recommended_count})
           end
 
         {:scale_down, metrics} ->
           current_count = map_size(state.worker_pool)
-          recommended_count = LivekitexAgent.WorkerOptions.get_recommended_worker_count(state.worker_options)
 
-          if recommended_count < current_count and recommended_count >= state.worker_options.min_workers do
-            Logger.info("Auto-scaling down: #{current_count} -> #{recommended_count}, metrics: #{inspect(metrics)}")
+          recommended_count =
+            LivekitexAgent.WorkerOptions.get_recommended_worker_count(state.worker_options)
+
+          if recommended_count < current_count and
+               recommended_count >= state.worker_options.min_workers do
+            Logger.info(
+              "Auto-scaling down: #{current_count} -> #{recommended_count}, metrics: #{inspect(metrics)}"
+            )
+
             GenServer.cast(self(), {:scale_workers, recommended_count})
           end
 
@@ -309,7 +325,10 @@ defmodule LivekitexAgent.WorkerManager do
         state = process_queued_jobs(state)
 
         # Update circuit breaker on success
-        state = %{state | circuit_breaker_state: handle_circuit_breaker_success(state.circuit_breaker_state)}
+        state = %{
+          state
+          | circuit_breaker_state: handle_circuit_breaker_success(state.circuit_breaker_state)
+        }
 
         {:noreply, state}
 
@@ -333,7 +352,11 @@ defmodule LivekitexAgent.WorkerManager do
         state = %{state | active_jobs: active_jobs, metrics: metrics}
 
         # Update circuit breaker on failure
-        state = %{state | circuit_breaker_state: handle_circuit_breaker_failure(state.circuit_breaker_state, state.worker_options)}
+        state = %{
+          state
+          | circuit_breaker_state:
+              handle_circuit_breaker_failure(state.circuit_breaker_state, state.worker_options)
+        }
 
         # Process any queued jobs
         state = process_queued_jobs(state)
@@ -353,12 +376,14 @@ defmodule LivekitexAgent.WorkerManager do
     1..count
     |> Enum.map(fn i ->
       worker_id = "worker_#{i}_#{:crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)}"
-      {worker_id, %{
-        id: worker_id,
-        started_at: DateTime.utc_now(),
-        job_count: 0,
-        last_job_at: nil
-      }}
+
+      {worker_id,
+       %{
+         id: worker_id,
+         started_at: DateTime.utc_now(),
+         job_count: 0,
+         last_job_at: nil
+       }}
     end)
     |> Map.new()
   end
@@ -385,7 +410,8 @@ defmodule LivekitexAgent.WorkerManager do
       )
 
     # Select worker based on load balancing strategy
-    selected_worker = select_worker(state.worker_pool, state.worker_options.load_balancer_strategy)
+    selected_worker =
+      select_worker(state.worker_pool, state.worker_options.load_balancer_strategy)
 
     # Start job in supervised task
     task =
@@ -406,10 +432,7 @@ defmodule LivekitexAgent.WorkerManager do
     # Update worker stats
     worker_pool =
       Map.update!(state.worker_pool, selected_worker, fn worker ->
-        %{worker |
-          job_count: worker.job_count + 1,
-          last_job_at: DateTime.utc_now()
-        }
+        %{worker | job_count: worker.job_count + 1, last_job_at: DateTime.utc_now()}
       end)
 
     state = %{state | active_jobs: active_jobs, worker_pool: worker_pool}
@@ -446,7 +469,8 @@ defmodule LivekitexAgent.WorkerManager do
     # For now, use job count as load metric
     worker_pool
     |> Enum.sort_by(fn {_id, worker} ->
-      {worker.job_count, DateTime.diff(DateTime.utc_now(), worker.last_job_at || worker.started_at)}
+      {worker.job_count,
+       DateTime.diff(DateTime.utc_now(), worker.last_job_at || worker.started_at)}
     end)
     |> List.first()
     |> elem(0)
@@ -463,7 +487,8 @@ defmodule LivekitexAgent.WorkerManager do
   defp priority_to_value(:low), do: 4
 
   defp process_queued_jobs(state) do
-    if :queue.is_empty(state.job_queue) or map_size(state.active_jobs) >= state.worker_options.max_concurrent_jobs do
+    if :queue.is_empty(state.job_queue) or
+         map_size(state.active_jobs) >= state.worker_options.max_concurrent_jobs do
       state
     else
       case :queue.out(state.job_queue) do
@@ -495,12 +520,14 @@ defmodule LivekitexAgent.WorkerManager do
     1..count
     |> Enum.map(fn i ->
       worker_id = "worker_new_#{i}_#{:crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)}"
-      {worker_id, %{
-        id: worker_id,
-        started_at: DateTime.utc_now(),
-        job_count: 0,
-        last_job_at: nil
-      }}
+
+      {worker_id,
+       %{
+         id: worker_id,
+         started_at: DateTime.utc_now(),
+         job_count: 0,
+         last_job_at: nil
+       }}
     end)
     |> Map.new()
   end
@@ -510,7 +537,8 @@ defmodule LivekitexAgent.WorkerManager do
     sorted_workers =
       worker_pool
       |> Enum.sort_by(fn {_id, worker} ->
-        {worker.job_count, DateTime.diff(DateTime.utc_now(), worker.last_job_at || worker.started_at)}
+        {worker.job_count,
+         DateTime.diff(DateTime.utc_now(), worker.last_job_at || worker.started_at)}
       end)
 
     {to_stop, to_keep} = Enum.split(sorted_workers, count)
@@ -551,10 +579,13 @@ defmodule LivekitexAgent.WorkerManager do
 
   defp should_trip_breaker?(worker_options) do
     case worker_options.circuit_breaker_config do
-      nil -> false
+      nil ->
+        false
+
       config ->
         # Simplified check - in real implementation, would track failure count
-        :rand.uniform() < 0.1  # 10% chance to demonstrate the feature
+        # 10% chance to demonstrate the feature
+        :rand.uniform() < 0.1
     end
   end
 
@@ -563,10 +594,11 @@ defmodule LivekitexAgent.WorkerManager do
     new_total_duration = metrics.total_job_duration + duration
     new_avg = new_total_duration / new_completed
 
-    %{metrics |
-      jobs_completed: new_completed,
-      total_job_duration: new_total_duration,
-      avg_job_duration: new_avg
+    %{
+      metrics
+      | jobs_completed: new_completed,
+        total_job_duration: new_total_duration,
+        avg_job_duration: new_avg
     }
   end
 

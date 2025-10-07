@@ -358,10 +358,12 @@ defmodule LivekitexAgent.AgentSession do
   def restore_session(session_id, opts \\ []) do
     case load_conversation_state(session_id, opts) do
       {:ok, conversation_data} ->
-        session_opts = Keyword.merge(opts, [
-          session_id: session_id,
-          restore_data: conversation_data
-        ])
+        session_opts =
+          Keyword.merge(opts,
+            session_id: session_id,
+            restore_data: conversation_data
+          )
+
         start_link(session_opts)
 
       {:error, reason} ->
@@ -495,72 +497,74 @@ defmodule LivekitexAgent.AgentSession do
     # Check for restore data
     restore_data = Keyword.get(opts, :restore_data)
 
-    session = if restore_data do
-      # Restore from persisted state
-      Logger.info("Restoring session from persisted state: #{restore_data.session_id}")
+    session =
+      if restore_data do
+        # Restore from persisted state
+        Logger.info("Restoring session from persisted state: #{restore_data.session_id}")
 
-      %__MODULE__{
-        agent: agent,
-        session_id: restore_data.session_id,
-        realtime_client: nil,
-        llm_client: Keyword.get(opts, :llm_client),
-        tts_client: Keyword.get(opts, :tts_client),
-        stt_client: Keyword.get(opts, :stt_client),
-        vad_client: Keyword.get(opts, :vad_client),
-        media_streams: %{},
-        chat_context: [],
-        current_turn: nil,
-        tool_registry: build_tool_registry(agent.tools),
-        event_callbacks: Keyword.get(opts, :event_callbacks, %{}),
-        state: :idle,
-        metrics: init_metrics(),
-        user_data: Keyword.get(opts, :user_data, %{}),
-        started_at: restore_data.created_at || DateTime.utc_now(),
-        audio_buffer: [],
-        input_audio_buffer: [],
-        conversation_state: restore_data.conversation_state || init_conversation_state(),
-        turn_history: restore_data.turn_history || [],
-        last_activity_at: restore_data.updated_at || DateTime.utc_now(),
-        room_id: restore_data.room_id || Keyword.get(opts, :room_id),
-        participants: restore_data.participants || %{},
-        created_at: restore_data.created_at
-      }
-    else
-      # Create new session
-      %__MODULE__{
-        agent: agent,
-        session_id: Keyword.get(opts, :session_id) || generate_session_id(),
-        realtime_client: nil,
-        llm_client: Keyword.get(opts, :llm_client),
-        tts_client: Keyword.get(opts, :tts_client),
-        stt_client: Keyword.get(opts, :stt_client),
-        vad_client: Keyword.get(opts, :vad_client),
-        media_streams: %{},
-        chat_context: [],
-        current_turn: nil,
-        tool_registry: build_tool_registry(agent.tools),
-        event_callbacks: Keyword.get(opts, :event_callbacks, %{}),
-        state: :idle,
-        metrics: init_metrics(),
-        user_data: Keyword.get(opts, :user_data, %{}),
-        started_at: DateTime.utc_now(),
-        audio_buffer: [],
-        input_audio_buffer: [],
-        conversation_state: init_conversation_state(),
-        turn_history: [],
-        last_activity_at: DateTime.utc_now(),
-        room_id: Keyword.get(opts, :room_id),
-        participants: %{},
-        created_at: DateTime.utc_now(),
-        # Multi-modal support initialization
-        stream_manager: nil,
-        video_stream: nil,
-        text_stream: %{enabled: true}, # Text is enabled by default
-        multimodal_context: %{},
-        sync_state: %{},
-        quality_config: %{audio: :high, video: :medium, text: :high}
-      }
-    end
+        %__MODULE__{
+          agent: agent,
+          session_id: restore_data.session_id,
+          realtime_client: nil,
+          llm_client: Keyword.get(opts, :llm_client),
+          tts_client: Keyword.get(opts, :tts_client),
+          stt_client: Keyword.get(opts, :stt_client),
+          vad_client: Keyword.get(opts, :vad_client),
+          media_streams: %{},
+          chat_context: [],
+          current_turn: nil,
+          tool_registry: build_tool_registry(agent.tools),
+          event_callbacks: Keyword.get(opts, :event_callbacks, %{}),
+          state: :idle,
+          metrics: init_metrics(),
+          user_data: Keyword.get(opts, :user_data, %{}),
+          started_at: restore_data.created_at || DateTime.utc_now(),
+          audio_buffer: [],
+          input_audio_buffer: [],
+          conversation_state: restore_data.conversation_state || init_conversation_state(),
+          turn_history: restore_data.turn_history || [],
+          last_activity_at: restore_data.updated_at || DateTime.utc_now(),
+          room_id: restore_data.room_id || Keyword.get(opts, :room_id),
+          participants: restore_data.participants || %{},
+          created_at: restore_data.created_at
+        }
+      else
+        # Create new session
+        %__MODULE__{
+          agent: agent,
+          session_id: Keyword.get(opts, :session_id) || generate_session_id(),
+          realtime_client: nil,
+          llm_client: Keyword.get(opts, :llm_client),
+          tts_client: Keyword.get(opts, :tts_client),
+          stt_client: Keyword.get(opts, :stt_client),
+          vad_client: Keyword.get(opts, :vad_client),
+          media_streams: %{},
+          chat_context: [],
+          current_turn: nil,
+          tool_registry: build_tool_registry(agent.tools),
+          event_callbacks: Keyword.get(opts, :event_callbacks, %{}),
+          state: :idle,
+          metrics: init_metrics(),
+          user_data: Keyword.get(opts, :user_data, %{}),
+          started_at: DateTime.utc_now(),
+          audio_buffer: [],
+          input_audio_buffer: [],
+          conversation_state: init_conversation_state(),
+          turn_history: [],
+          last_activity_at: DateTime.utc_now(),
+          room_id: Keyword.get(opts, :room_id),
+          participants: %{},
+          created_at: DateTime.utc_now(),
+          # Multi-modal support initialization
+          stream_manager: nil,
+          video_stream: nil,
+          # Text is enabled by default
+          text_stream: %{enabled: true},
+          multimodal_context: %{},
+          sync_state: %{},
+          quality_config: %{audio: :high, video: :medium, text: :high}
+        }
+      end
 
     Logger.info("Agent session started: #{session.session_id}")
     emit_event(session, :session_started, %{session_id: session.session_id})
@@ -590,11 +594,12 @@ defmodule LivekitexAgent.AgentSession do
     Logger.debug("Processing audio data: #{byte_size(audio_data)} bytes")
 
     # Update state to listening if idle and track activity
-    session = if session.state == :idle do
-      %{session | state: :listening, last_activity_at: DateTime.utc_now()}
-    else
-      %{session | last_activity_at: DateTime.utc_now()}
-    end
+    session =
+      if session.state == :idle do
+        %{session | state: :listening, last_activity_at: DateTime.utc_now()}
+      else
+        %{session | last_activity_at: DateTime.utc_now()}
+      end
 
     # Route audio to VAD if present
     if session.vad_client do
@@ -605,8 +610,9 @@ defmodule LivekitexAgent.AgentSession do
     session = %{session | input_audio_buffer: [audio_data | session.input_audio_buffer]}
 
     # Update metrics
-    updated_metrics = %{session.metrics |
-      audio_segments_processed: session.metrics.audio_segments_processed + 1
+    updated_metrics = %{
+      session.metrics
+      | audio_segments_processed: session.metrics.audio_segments_processed + 1
     }
 
     session = %{session | metrics: updated_metrics}
@@ -680,6 +686,7 @@ defmodule LivekitexAgent.AgentSession do
 
     # Create new turn
     turn_id = generate_turn_id()
+
     new_turn = %{
       turn_id: turn_id,
       type: :text,
@@ -702,15 +709,17 @@ defmodule LivekitexAgent.AgentSession do
     updated_context = session.chat_context ++ [%{role: "user", content: text}]
 
     # Update metrics
-    updated_metrics = %{session.metrics |
-      messages_processed: session.metrics.messages_processed + 1,
-      total_text_characters: session.metrics.total_text_characters + String.length(text)
+    updated_metrics = %{
+      session.metrics
+      | messages_processed: session.metrics.messages_processed + 1,
+        total_text_characters: session.metrics.total_text_characters + String.length(text)
     }
 
-    session = %{session |
-      chat_context: updated_context,
-      current_turn: new_turn,
-      metrics: updated_metrics
+    session = %{
+      session
+      | chat_context: updated_context,
+        current_turn: new_turn,
+        metrics: updated_metrics
     }
 
     # Process through LLM
@@ -735,27 +744,29 @@ defmodule LivekitexAgent.AgentSession do
     end
 
     # Update metrics and track current turn as interrupted
-    updated_metrics = %{session.metrics |
-      interruptions: session.metrics.interruptions + 1
-    }
+    updated_metrics = %{session.metrics | interruptions: session.metrics.interruptions + 1}
 
     # If there's a current turn, mark it as interrupted and add to history
-    turn_history = if session.current_turn do
-      interrupted_turn = %{session.current_turn |
-        completed_at: DateTime.utc_now(),
-        metadata: Map.put(session.current_turn.metadata, :interrupted, true)
-      }
-      session.turn_history ++ [interrupted_turn]
-    else
-      session.turn_history
-    end
+    turn_history =
+      if session.current_turn do
+        interrupted_turn = %{
+          session.current_turn
+          | completed_at: DateTime.utc_now(),
+            metadata: Map.put(session.current_turn.metadata, :interrupted, true)
+        }
 
-    session = %{session |
-      state: :interrupted,
-      current_turn: nil,
-      turn_history: turn_history,
-      metrics: updated_metrics,
-      last_activity_at: DateTime.utc_now()
+        session.turn_history ++ [interrupted_turn]
+      else
+        session.turn_history
+      end
+
+    session = %{
+      session
+      | state: :interrupted,
+        current_turn: nil,
+        turn_history: turn_history,
+        metrics: updated_metrics,
+        last_activity_at: DateTime.utc_now()
     }
 
     emit_event(session, :interrupted, %{})
@@ -811,6 +822,7 @@ defmodule LivekitexAgent.AgentSession do
       registered_events: Map.keys(session.event_callbacks),
       callback_count: map_size(session.event_callbacks)
     }
+
     {:reply, callback_info, session}
   end
 
@@ -880,12 +892,14 @@ defmodule LivekitexAgent.AgentSession do
       :user ->
         # User text input - process like transcribed audio
         session = handle_user_text_input(session, text, metadata)
+
         emit_event(session, :text_received, %{
           text: text,
           source: source,
           timestamp: timestamp,
           metadata: metadata
         })
+
         {:noreply, session}
 
       :system ->
@@ -895,6 +909,7 @@ defmodule LivekitexAgent.AgentSession do
           timestamp: timestamp,
           metadata: metadata
         })
+
         {:noreply, session}
 
       _ ->
@@ -905,6 +920,7 @@ defmodule LivekitexAgent.AgentSession do
           timestamp: timestamp,
           metadata: metadata
         })
+
         {:noreply, session}
     end
   end
@@ -921,6 +937,7 @@ defmodule LivekitexAgent.AgentSession do
       participants: session.participants,
       room_id: session.room_id
     }
+
     {:reply, conversation_info, session}
   end
 
@@ -944,8 +961,18 @@ defmodule LivekitexAgent.AgentSession do
   @impl true
   def handle_call({:update_participant, participant_id, participant_data}, _from, session) do
     updated_participants = Map.put(session.participants, participant_id, participant_data)
-    session = %{session | participants: updated_participants, last_activity_at: DateTime.utc_now()}
-    emit_event(session, :participant_updated, %{participant_id: participant_id, data: participant_data})
+
+    session = %{
+      session
+      | participants: updated_participants,
+        last_activity_at: DateTime.utc_now()
+    }
+
+    emit_event(session, :participant_updated, %{
+      participant_id: participant_id,
+      data: participant_data
+    })
+
     {:reply, :ok, session}
   end
 
@@ -958,14 +985,19 @@ defmodule LivekitexAgent.AgentSession do
           saved_at: DateTime.utc_now(),
           storage_backend: Keyword.get(opts, :storage_backend, :ets)
         })
+
         {:reply, {:ok, saved_data}, session}
 
       {:error, reason} ->
-        Logger.error("Failed to save conversation state for session #{session.session_id}: #{inspect(reason)}")
+        Logger.error(
+          "Failed to save conversation state for session #{session.session_id}: #{inspect(reason)}"
+        )
+
         emit_event(session, :conversation_state_save_failed, %{
           session_id: session.session_id,
           reason: reason
         })
+
         {:reply, {:error, reason}, session}
     end
   end
@@ -973,7 +1005,13 @@ defmodule LivekitexAgent.AgentSession do
   @impl true
   def handle_call({:remove_participant, participant_id}, _from, session) do
     updated_participants = Map.delete(session.participants, participant_id)
-    session = %{session | participants: updated_participants, last_activity_at: DateTime.utc_now()}
+
+    session = %{
+      session
+      | participants: updated_participants,
+        last_activity_at: DateTime.utc_now()
+    }
+
     emit_event(session, :participant_removed, %{participant_id: participant_id})
     {:reply, :ok, session}
   end
@@ -1042,7 +1080,8 @@ defmodule LivekitexAgent.AgentSession do
     context = %{
       video_enabled: session.video_stream != nil,
       text_enabled: session.text_stream != nil,
-      audio_enabled: true, # Always enabled
+      # Always enabled
+      audio_enabled: true,
       stream_manager: session.stream_manager != nil,
       sync_state: session.sync_state || %{},
       quality_config: session.quality_config || %{},
@@ -1055,13 +1094,21 @@ defmodule LivekitexAgent.AgentSession do
   @impl true
   def handle_call({:update_stream_quality, stream_type, quality}, _from, session) do
     if session.stream_manager do
-      case LivekitexAgent.StreamManager.update_quality(session.stream_manager, stream_type, quality) do
+      case LivekitexAgent.StreamManager.update_quality(
+             session.stream_manager,
+             stream_type,
+             quality
+           ) do
         :ok ->
           # Update local quality config
           quality_config = Map.put(session.quality_config || %{}, stream_type, quality)
           updated_session = %{session | quality_config: quality_config}
 
-          emit_event(updated_session, :stream_quality_updated, %{stream_type: stream_type, quality: quality})
+          emit_event(updated_session, :stream_quality_updated, %{
+            stream_type: stream_type,
+            quality: quality
+          })
+
           {:reply, :ok, updated_session}
 
         {:error, reason} ->
@@ -1260,7 +1307,10 @@ defmodule LivekitexAgent.AgentSession do
 
     # Add tool error to chat context for LLM to handle
     error_message = "Tool #{tool_name} failed: #{inspect(reason)}"
-    updated_context = session.chat_context ++ [%{role: "tool", name: tool_name, content: error_message}]
+
+    updated_context =
+      session.chat_context ++ [%{role: "tool", name: tool_name, content: error_message}]
+
     session = %{session | chat_context: updated_context}
 
     # Continue with LLM processing to handle the error
@@ -1450,14 +1500,12 @@ defmodule LivekitexAgent.AgentSession do
     updated_context = session.chat_context ++ [%{role: "assistant", content: response}]
 
     # Complete current turn
-    completed_turn = if session.current_turn do
-      %{session.current_turn |
-        response: response,
-        completed_at: DateTime.utc_now()
-      }
-    else
-      nil
-    end
+    completed_turn =
+      if session.current_turn do
+        %{session.current_turn | response: response, completed_at: DateTime.utc_now()}
+      else
+        nil
+      end
 
     # Emit turn completed event
     if completed_turn do
@@ -1466,23 +1514,26 @@ defmodule LivekitexAgent.AgentSession do
         type: completed_turn.type,
         input: completed_turn.input,
         response: response,
-        duration: DateTime.diff(completed_turn.completed_at, completed_turn.started_at, :millisecond)
+        duration:
+          DateTime.diff(completed_turn.completed_at, completed_turn.started_at, :millisecond)
       })
     end
 
     # Add turn to history
-    turn_history = if completed_turn do
-      session.turn_history ++ [completed_turn]
-    else
-      session.turn_history
-    end
+    turn_history =
+      if completed_turn do
+        session.turn_history ++ [completed_turn]
+      else
+        session.turn_history
+      end
 
-    session = %{session |
-      chat_context: updated_context,
-      state: :speaking,
-      current_turn: nil,
-      turn_history: turn_history,
-      last_activity_at: DateTime.utc_now()
+    session = %{
+      session
+      | chat_context: updated_context,
+        state: :speaking,
+        current_turn: nil,
+        turn_history: turn_history,
+        last_activity_at: DateTime.utc_now()
     }
 
     # Send to TTS if available
@@ -1540,21 +1591,24 @@ defmodule LivekitexAgent.AgentSession do
 
   defp handle_tool_calls(session, tool_calls) do
     # Update current turn with tool calls if present
-    updated_turn = if session.current_turn do
-      %{session.current_turn | tool_calls: tool_calls}
-    else
-      session.current_turn
-    end
+    updated_turn =
+      if session.current_turn do
+        %{session.current_turn | tool_calls: tool_calls}
+      else
+        session.current_turn
+      end
 
     # Update metrics
-    updated_metrics = %{session.metrics |
-      tool_calls_executed: session.metrics.tool_calls_executed + length(tool_calls)
+    updated_metrics = %{
+      session.metrics
+      | tool_calls_executed: session.metrics.tool_calls_executed + length(tool_calls)
     }
 
-    session = %{session |
-      current_turn: updated_turn,
-      metrics: updated_metrics,
-      last_activity_at: DateTime.utc_now()
+    session = %{
+      session
+      | current_turn: updated_turn,
+        metrics: updated_metrics,
+        last_activity_at: DateTime.utc_now()
     }
 
     # Execute each tool call
@@ -1623,7 +1677,8 @@ defmodule LivekitexAgent.AgentSession do
 
     streams = if session.video_stream, do: [:video | streams], else: streams
     streams = if session.text_stream, do: [:text | streams], else: streams
-    streams = [:audio | streams] # Audio is always active
+    # Audio is always active
+    streams = [:audio | streams]
 
     streams
   end
@@ -1651,9 +1706,11 @@ defmodule LivekitexAgent.AgentSession do
     # Trigger LLM processing if configured
     if session.llm_client do
       # Add text to chat context
-      updated_context = session.chat_context ++ [
-        %{role: "user", content: text, timestamp: DateTime.utc_now()}
-      ]
+      updated_context =
+        session.chat_context ++
+          [
+            %{role: "user", content: text, timestamp: DateTime.utc_now()}
+          ]
 
       session = %{session | chat_context: updated_context}
 

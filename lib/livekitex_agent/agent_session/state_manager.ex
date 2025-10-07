@@ -42,28 +42,29 @@ defmodule LivekitexAgent.AgentSession.StateManager do
 
   @ets_table_name :agent_conversation_states
   @default_storage_path "./conversation_states"
-  @default_ttl 86_400  # 24 hours in seconds
+  # 24 hours in seconds
+  @default_ttl 86_400
 
   @type storage_backend :: :ets | :file | :database
   @type storage_options :: [
-    storage_backend: storage_backend(),
-    storage_path: String.t(),
-    compression: boolean(),
-    ttl: pos_integer(),
-    encryption_key: binary() | nil
-  ]
+          storage_backend: storage_backend(),
+          storage_path: String.t(),
+          compression: boolean(),
+          ttl: pos_integer(),
+          encryption_key: binary() | nil
+        ]
 
   @type conversation_state :: %{
-    session_id: String.t(),
-    created_at: DateTime.t(),
-    updated_at: DateTime.t(),
-    conversation_state: map(),
-    turn_history: list(),
-    participants: map(),
-    room_id: String.t() | nil,
-    metadata: map(),
-    performance_metrics: map()
-  }
+          session_id: String.t(),
+          created_at: DateTime.t(),
+          updated_at: DateTime.t(),
+          conversation_state: map(),
+          turn_history: list(),
+          participants: map(),
+          room_id: String.t() | nil,
+          metadata: map(),
+          performance_metrics: map()
+        }
 
   # Public API
 
@@ -83,6 +84,7 @@ defmodule LivekitexAgent.AgentSession.StateManager do
           {:read_concurrency, true},
           {:write_concurrency, true}
         ])
+
         Logger.info("StateManager ETS table initialized")
 
       _ ->
@@ -260,31 +262,34 @@ defmodule LivekitexAgent.AgentSession.StateManager do
   end
 
   defp list_from_ets do
-    states = :ets.tab2list(@ets_table_name)
-    |> Enum.filter(fn {_id, _data, expires_at} ->
-      DateTime.before?(DateTime.utc_now(), expires_at)
-    end)
-    |> Enum.map(fn {session_id, state_data, expires_at} ->
-      %{
-        session_id: session_id,
-        created_at: state_data.created_at,
-        updated_at: state_data.updated_at,
-        expires_at: expires_at,
-        turn_count: length(state_data.turn_history),
-        participant_count: map_size(state_data.participants)
-      }
-    end)
+    states =
+      :ets.tab2list(@ets_table_name)
+      |> Enum.filter(fn {_id, _data, expires_at} ->
+        DateTime.before?(DateTime.utc_now(), expires_at)
+      end)
+      |> Enum.map(fn {session_id, state_data, expires_at} ->
+        %{
+          session_id: session_id,
+          created_at: state_data.created_at,
+          updated_at: state_data.updated_at,
+          expires_at: expires_at,
+          turn_count: length(state_data.turn_history),
+          participant_count: map_size(state_data.participants)
+        }
+      end)
 
     {:ok, states}
   end
 
   defp cleanup_ets_expired do
     now = DateTime.utc_now()
-    expired_keys = :ets.tab2list(@ets_table_name)
-    |> Enum.filter(fn {_id, _data, expires_at} ->
-      DateTime.after?(now, expires_at)
-    end)
-    |> Enum.map(fn {session_id, _data, _expires_at} -> session_id end)
+
+    expired_keys =
+      :ets.tab2list(@ets_table_name)
+      |> Enum.filter(fn {_id, _data, expires_at} ->
+        DateTime.after?(now, expires_at)
+      end)
+      |> Enum.map(fn {session_id, _data, _expires_at} -> session_id end)
 
     Enum.each(expired_keys, fn session_id ->
       :ets.delete(@ets_table_name, session_id)
@@ -318,18 +323,18 @@ defmodule LivekitexAgent.AgentSession.StateManager do
       json_data = Jason.encode!(file_data)
 
       # Apply compression if enabled
-      final_data = if compression do
-        :zlib.compress(json_data)
-      else
-        json_data
-      end
+      final_data =
+        if compression do
+          :zlib.compress(json_data)
+        else
+          json_data
+        end
 
       # Write to file
       File.write!(filepath, final_data)
 
       Logger.debug("Saved conversation state to file: #{filepath}")
       {:ok, %{session_id: state_data.session_id, filepath: filepath, expires_at: expires_at}}
-
     rescue
       e ->
         Logger.error("Failed to save conversation state to file: #{inspect(e)}")
@@ -348,11 +353,12 @@ defmodule LivekitexAgent.AgentSession.StateManager do
       case File.read(filepath) do
         {:ok, raw_data} ->
           # Decompress if needed
-          json_data = if compression do
-            :zlib.uncompress(raw_data)
-          else
-            raw_data
-          end
+          json_data =
+            if compression do
+              :zlib.uncompress(raw_data)
+            else
+              raw_data
+            end
 
           # Parse JSON
           state_data = Jason.decode!(json_data, keys: :atoms)
@@ -360,6 +366,7 @@ defmodule LivekitexAgent.AgentSession.StateManager do
           # Check expiration
           if state_data[:expires_at] do
             expires_at = DateTime.from_iso8601(state_data.expires_at) |> elem(1)
+
             if DateTime.before?(DateTime.utc_now(), expires_at) do
               Logger.debug("Loaded conversation state from file: #{filepath}")
               {:ok, Map.delete(state_data, :expires_at)}
@@ -382,7 +389,6 @@ defmodule LivekitexAgent.AgentSession.StateManager do
           Logger.error("Failed to read conversation state file #{filepath}: #{inspect(reason)}")
           {:error, {:file_read_failed, reason}}
       end
-
     rescue
       e ->
         Logger.error("Failed to load conversation state from file: #{inspect(e)}")
@@ -399,9 +405,11 @@ defmodule LivekitexAgent.AgentSession.StateManager do
       :ok ->
         Logger.debug("Deleted conversation state file: #{filepath}")
         :ok
+
       {:error, :enoent} ->
         Logger.debug("Conversation state file not found for deletion: #{filepath}")
         :ok
+
       {:error, reason} ->
         Logger.error("Failed to delete conversation state file #{filepath}: #{inspect(reason)}")
         {:error, {:file_delete_failed, reason}}
@@ -414,24 +422,27 @@ defmodule LivekitexAgent.AgentSession.StateManager do
     try do
       case File.ls(storage_path) do
         {:ok, files} ->
-          states = files
-          |> Enum.filter(&String.ends_with?(&1, ".json"))
-          |> Enum.map(fn filename ->
-            session_id = String.replace_suffix(filename, ".json", "")
-            case load_from_file(session_id, opts) do
-              {:ok, state_data} ->
-                %{
-                  session_id: session_id,
-                  created_at: state_data.created_at,
-                  updated_at: state_data.updated_at,
-                  turn_count: length(state_data.turn_history || []),
-                  participant_count: map_size(state_data.participants || %{})
-                }
-              {:error, _} ->
-                nil
-            end
-          end)
-          |> Enum.reject(&is_nil/1)
+          states =
+            files
+            |> Enum.filter(&String.ends_with?(&1, ".json"))
+            |> Enum.map(fn filename ->
+              session_id = String.replace_suffix(filename, ".json", "")
+
+              case load_from_file(session_id, opts) do
+                {:ok, state_data} ->
+                  %{
+                    session_id: session_id,
+                    created_at: state_data.created_at,
+                    updated_at: state_data.updated_at,
+                    turn_count: length(state_data.turn_history || []),
+                    participant_count: map_size(state_data.participants || %{})
+                  }
+
+                {:error, _} ->
+                  nil
+              end
+            end)
+            |> Enum.reject(&is_nil/1)
 
           {:ok, states}
 
@@ -439,7 +450,6 @@ defmodule LivekitexAgent.AgentSession.StateManager do
           Logger.error("Failed to list conversation state files: #{inspect(reason)}")
           {:error, {:directory_read_failed, reason}}
       end
-
     rescue
       e ->
         Logger.error("Failed to list conversation states from files: #{inspect(e)}")
@@ -452,15 +462,17 @@ defmodule LivekitexAgent.AgentSession.StateManager do
 
     case File.ls(storage_path) do
       {:ok, files} ->
-        expired_files = files
-        |> Enum.filter(&String.ends_with?(&1, ".json"))
-        |> Enum.filter(fn filename ->
-          session_id = String.replace_suffix(filename, ".json", "")
-          case load_from_file(session_id, opts) do
-            {:error, :expired} -> true
-            _ -> false
-          end
-        end)
+        expired_files =
+          files
+          |> Enum.filter(&String.ends_with?(&1, ".json"))
+          |> Enum.filter(fn filename ->
+            session_id = String.replace_suffix(filename, ".json", "")
+
+            case load_from_file(session_id, opts) do
+              {:error, :expired} -> true
+              _ -> false
+            end
+          end)
 
         Enum.each(expired_files, fn filename ->
           filepath = Path.join(storage_path, filename)

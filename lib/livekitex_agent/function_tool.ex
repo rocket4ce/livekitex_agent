@@ -144,7 +144,8 @@ defmodule LivekitexAgent.FunctionTool do
           LivekitexAgent.ToolRegistry.unregister_tool(tool.name)
         end)
 
-      _ -> :ok
+      _ ->
+        :ok
     end
 
     # Re-register with current definitions
@@ -177,12 +178,14 @@ defmodule LivekitexAgent.FunctionTool do
   end
 
   defp add_namespace(tool, nil), do: tool
+
   defp add_namespace(tool, namespace) do
     namespaced_name = "#{namespace}.#{tool.name}"
     %{tool | name: namespaced_name}
   end
 
   defp add_auto_reload_metadata(tool, false), do: tool
+
   defp add_auto_reload_metadata(tool, true) do
     metadata = Map.put(tool.metadata || %{}, :auto_reload, true)
     %{tool | metadata: metadata}
@@ -232,7 +235,8 @@ defmodule LivekitexAgent.FunctionTool do
         module_tools = Enum.filter(tools, &(&1.module == module))
         {:ok, module_tools}
 
-      error -> error
+      error ->
+        error
     end
   end
 
@@ -300,9 +304,11 @@ defmodule LivekitexAgent.FunctionTool do
       {:error, reason} when attempts > 1 ->
         # Log retry attempt
         if context do
-          LivekitexAgent.RunContext.log_warning(context,
+          LivekitexAgent.RunContext.log_warning(
+            context,
             "Tool execution failed, retrying: #{tool_name}",
-            %{error: reason, attempts_remaining: attempts - 1})
+            %{error: reason, attempts_remaining: attempts - 1}
+          )
         end
 
         # Brief backoff before retry
@@ -494,6 +500,7 @@ defmodule LivekitexAgent.FunctionTool do
 
       {:error, reason} ->
         error_data = Map.put(log_data, :error, inspect(reason))
+
         if context do
           LivekitexAgent.RunContext.log_error(context, "Tool execution failed", error_data)
         else
@@ -596,11 +603,19 @@ defmodule LivekitexAgent.FunctionTool do
 
   defp generate_parameter_description({:type, _, :binary, []}, _), do: "Text string parameter"
   defp generate_parameter_description({:type, _, :integer, []}, _), do: "Integer number parameter"
-  defp generate_parameter_description({:type, _, :float, []}, _), do: "Floating point number parameter"
-  defp generate_parameter_description({:type, _, :boolean, []}, _), do: "Boolean true/false parameter"
+
+  defp generate_parameter_description({:type, _, :float, []}, _),
+    do: "Floating point number parameter"
+
+  defp generate_parameter_description({:type, _, :boolean, []}, _),
+    do: "Boolean true/false parameter"
+
   defp generate_parameter_description({:type, _, :list, _}, _), do: "List of items parameter"
   defp generate_parameter_description({:type, _, :map, _}, _), do: "Map/object parameter"
-  defp generate_parameter_description({:user_type, _, type_name, _}, _), do: "#{type_name} parameter"
+
+  defp generate_parameter_description({:user_type, _, type_name, _}, _),
+    do: "#{type_name} parameter"
+
   defp generate_parameter_description(_, index), do: "Parameter #{index}"
 
   defp build_openai_properties(parameters) do
@@ -744,18 +759,23 @@ defmodule LivekitexAgent.FunctionTool do
   defp convert_parameter(%{type: "string"}, value), do: {:ok, to_string(value)}
 
   defp convert_parameter(%{type: "integer"}, value) when is_integer(value), do: {:ok, value}
+
   defp convert_parameter(%{type: "integer"}, value) when is_binary(value) do
     case Integer.parse(value) do
       {int, ""} -> {:ok, int}
       _ -> {:error, :invalid_integer}
     end
   end
+
   defp convert_parameter(%{type: "integer"}, value) when is_float(value), do: {:ok, trunc(value)}
 
   defp convert_parameter(%{type: "number"}, value) when is_number(value), do: {:ok, value}
+
   defp convert_parameter(%{type: "number"}, value) when is_binary(value) do
     case Float.parse(value) do
-      {float, ""} -> {:ok, float}
+      {float, ""} ->
+        {:ok, float}
+
       _ ->
         case Integer.parse(value) do
           {int, ""} -> {:ok, int}
@@ -771,6 +791,7 @@ defmodule LivekitexAgent.FunctionTool do
   defp convert_parameter(%{type: "boolean"}, 0), do: {:ok, false}
 
   defp convert_parameter(%{type: "array"}, value) when is_list(value), do: {:ok, value}
+
   defp convert_parameter(%{type: "array"}, value) when is_binary(value) do
     case Jason.decode(value) do
       {:ok, list} when is_list(list) -> {:ok, list}
@@ -779,6 +800,7 @@ defmodule LivekitexAgent.FunctionTool do
   end
 
   defp convert_parameter(%{type: "object"}, value) when is_map(value), do: {:ok, value}
+
   defp convert_parameter(%{type: "object"}, value) when is_binary(value) do
     case Jason.decode(value) do
       {:ok, map} when is_map(map) -> {:ok, map}

@@ -162,6 +162,7 @@ defmodule LivekitexAgent.SpeechHandle do
 
           {:error, reason} ->
             error_state = %{state | state: :error}
+
             notify_session(state.session_pid, :speech_error, %{
               handle_id: state.handle_id,
               error: reason
@@ -301,14 +302,16 @@ defmodule LivekitexAgent.SpeechHandle do
 
   defp simulate_tts_process(text, parent) do
     # Simulate TTS processing
-    Process.sleep(50) # Simulate synthesis time
+    # Simulate synthesis time
+    Process.sleep(50)
 
     # Send audio chunks
     chunks = String.split(text, " ")
 
     Enum.each(chunks, fn chunk ->
       send(parent, {:tts_audio_chunk, chunk})
-      Process.sleep(100) # Simulate chunk timing
+      # Simulate chunk timing
+      Process.sleep(100)
     end)
 
     send(parent, {:tts_completed})

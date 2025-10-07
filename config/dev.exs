@@ -23,7 +23,8 @@ config :livekitex_agent,
   # Development worker options
   default_worker_options: [
     max_concurrent_jobs: 5,
-    drain_timeout: 10_000,  # Shorter timeout for dev
+    # Shorter timeout for dev
+    drain_timeout: 10_000,
     health_check_port: 8080,
     log_level: :debug
   ]

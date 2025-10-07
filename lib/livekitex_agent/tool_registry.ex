@@ -23,20 +23,20 @@ defmodule LivekitexAgent.ToolRegistry do
   ]
 
   @type tool_definition :: %{
-    name: atom(),
-    module: module(),
-    function: atom(),
-    schema: map(),
-    metadata: map(),
-    registered_at: DateTime.t()
-  }
+          name: atom(),
+          module: module(),
+          function: atom(),
+          schema: map(),
+          metadata: map(),
+          registered_at: DateTime.t()
+        }
 
   @type t :: %__MODULE__{
-    table_ref: :ets.tid(),
-    metrics: map(),
-    event_callbacks: map(),
-    validation_enabled: boolean()
-  }
+          table_ref: :ets.tid(),
+          metrics: map(),
+          event_callbacks: map(),
+          validation_enabled: boolean()
+        }
 
   ## Client API
 
@@ -253,17 +253,19 @@ defmodule LivekitexAgent.ToolRegistry do
 
   @impl true
   def handle_call(:list_tools, _from, state) do
-    tools = :ets.tab2list(@table_name)
-    |> Enum.map(fn {_name, tool_def} -> tool_def end)
+    tools =
+      :ets.tab2list(@table_name)
+      |> Enum.map(fn {_name, tool_def} -> tool_def end)
 
     {:reply, tools, state}
   end
 
   @impl true
   def handle_call({:search_tools, criteria}, _from, state) do
-    tools = :ets.tab2list(@table_name)
-    |> Enum.map(fn {_name, tool_def} -> tool_def end)
-    |> Enum.filter(&matches_criteria?(&1, criteria))
+    tools =
+      :ets.tab2list(@table_name)
+      |> Enum.map(fn {_name, tool_def} -> tool_def end)
+      |> Enum.filter(&matches_criteria?(&1, criteria))
 
     {:reply, tools, state}
   end
@@ -272,13 +274,14 @@ defmodule LivekitexAgent.ToolRegistry do
   def handle_call({:execute_tool, name, params, context}, _from, state) do
     start_time = System.monotonic_time(:millisecond)
 
-    result = case :ets.lookup(@table_name, name) do
-      [{^name, tool_def}] ->
-        execute_tool_function(tool_def, params, context)
+    result =
+      case :ets.lookup(@table_name, name) do
+        [{^name, tool_def}] ->
+          execute_tool_function(tool_def, params, context)
 
-      [] ->
-        {:error, :tool_not_found}
-    end
+        [] ->
+          {:error, :tool_not_found}
+      end
 
     execution_time = System.monotonic_time(:millisecond) - start_time
     new_state = update_execution_metrics(state, result, execution_time)
@@ -315,13 +318,13 @@ defmodule LivekitexAgent.ToolRegistry do
   # Legacy API handlers
   @impl true
   def handle_call({:register, tool_definition}, from, state) do
-    handle_call({:register_tool,
-      Map.get(tool_definition, :name),
-      Map.get(tool_definition, :module),
-      Map.get(tool_definition, :function, :call),
-      Map.get(tool_definition, :schema, %{}),
-      Map.get(tool_definition, :metadata, %{})
-    }, from, state)
+    handle_call(
+      {:register_tool, Map.get(tool_definition, :name), Map.get(tool_definition, :module),
+       Map.get(tool_definition, :function, :call), Map.get(tool_definition, :schema, %{}),
+       Map.get(tool_definition, :metadata, %{})},
+      from,
+      state
+    )
   end
 
   @impl true
@@ -334,9 +337,10 @@ defmodule LivekitexAgent.ToolRegistry do
 
   @impl true
   def handle_call(:get_all, _from, state) do
-    tools = :ets.tab2list(@table_name)
-    |> Enum.map(fn {name, tool_def} -> {name, tool_def} end)
-    |> Enum.into(%{})
+    tools =
+      :ets.tab2list(@table_name)
+      |> Enum.map(fn {name, tool_def} -> {name, tool_def} end)
+      |> Enum.into(%{})
 
     {:reply, tools, state}
   end
@@ -377,6 +381,7 @@ defmodule LivekitexAgent.ToolRegistry do
 
   defp validate_schema(schema, true) when is_map(schema) do
     required_keys = ["type", "function"]
+
     if Enum.all?(required_keys, &Map.has_key?(schema, &1)) do
       :ok
     else
@@ -397,10 +402,14 @@ defmodule LivekitexAgent.ToolRegistry do
   defp matches_criteria?(tool_def, criteria) do
     Enum.all?(criteria, fn {key, value} ->
       case Map.get(tool_def, key) do
-        ^value -> true
+        ^value ->
+          true
+
         metadata when key == :metadata and is_map(metadata) ->
           Map.get(metadata, value) != nil
-        _ -> false
+
+        _ ->
+          false
       end
     end)
   end
@@ -423,14 +432,15 @@ defmodule LivekitexAgent.ToolRegistry do
     metrics = state.metrics
 
     new_metrics = %{
-      metrics |
-      total_executions: metrics.total_executions + 1,
-      average_execution_time: calculate_average_time(
-        metrics.average_execution_time,
-        execution_time,
-        metrics.total_executions + 1
-      ),
-      errors: metrics.errors + if(match?({:error, _}, result), do: 1, else: 0)
+      metrics
+      | total_executions: metrics.total_executions + 1,
+        average_execution_time:
+          calculate_average_time(
+            metrics.average_execution_time,
+            execution_time,
+            metrics.total_executions + 1
+          ),
+        errors: metrics.errors + if(match?({:error, _}, result), do: 1, else: 0)
     }
 
     %{state | metrics: new_metrics}
@@ -456,14 +466,18 @@ defmodule LivekitexAgent.ToolRegistry do
 
   defp trigger_callback(state, event, data) do
     case Map.get(state.event_callbacks, event) do
-      nil -> :ok
+      nil ->
+        :ok
+
       callback when is_function(callback, 2) ->
         try do
           callback.(event, data)
         rescue
           e -> Logger.error("Error in tool registry callback: #{inspect(e)}")
         end
-      _ -> Logger.warning("Invalid callback for event: #{event}")
+
+      _ ->
+        Logger.warning("Invalid callback for event: #{event}")
     end
   end
 end

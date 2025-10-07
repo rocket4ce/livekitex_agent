@@ -49,5 +49,4 @@ defmodule LivekitexAgent.AutoScaler do
 
     {:reply, status, state}
   end
-
 end

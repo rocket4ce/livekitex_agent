@@ -43,7 +43,8 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
   require Logger
 
   @quality_check_interval_ms 1000
-  @adaptation_threshold_ms 150 # Latency threshold for quality adaptation
+  # Latency threshold for quality adaptation
+  @adaptation_threshold_ms 150
 
   defstruct [
     :webrtc_handler,
@@ -59,9 +60,15 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
     failover_strategy: :automatic
   ]
 
-  @type feature :: :adaptive_quality | :advanced_echo_cancellation | :bandwidth_optimization |
-                   :connection_redundancy | :latency_optimization | :quality_monitoring |
-                   :failover_management | :multi_stream_support
+  @type feature ::
+          :adaptive_quality
+          | :advanced_echo_cancellation
+          | :bandwidth_optimization
+          | :connection_redundancy
+          | :latency_optimization
+          | :quality_monitoring
+          | :failover_management
+          | :multi_stream_support
 
   @type quality_profile :: :realtime_optimized | :balanced | :quality_first | :bandwidth_saver
 
@@ -155,7 +162,10 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
     # Initialize enabled features
     state = initialize_features(state)
 
-    Logger.info("AdvancedWebRTCFeatures started with features: #{inspect(state.enabled_features)}")
+    Logger.info(
+      "AdvancedWebRTCFeatures started with features: #{inspect(state.enabled_features)}"
+    )
+
     {:ok, state}
   end
 
@@ -185,11 +195,12 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
 
   @impl true
   def handle_cast({:set_feature_enabled, feature, enabled}, state) do
-    new_features = if enabled do
-      [feature | state.enabled_features] |> Enum.uniq()
-    else
-      List.delete(state.enabled_features, feature)
-    end
+    new_features =
+      if enabled do
+        [feature | state.enabled_features] |> Enum.uniq()
+      else
+        List.delete(state.enabled_features, feature)
+      end
 
     new_state = %{state | enabled_features: new_features}
     updated_state = initialize_features(new_state)
@@ -304,11 +315,16 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
 
   defp apply_quality_profile(:realtime_optimized, state) do
     settings = %{
-      audio_bitrate: 32_000, # Lower bitrate for minimal latency
-      video_bitrate: 500_000, # Conservative video bitrate
-      audio_sample_rate: 16_000, # Optimal for voice
-      video_fps: 15, # Reduced FPS for lower latency
-      enable_opus_dtx: true, # Discontinuous transmission
+      # Lower bitrate for minimal latency
+      audio_bitrate: 32_000,
+      # Conservative video bitrate
+      video_bitrate: 500_000,
+      # Optimal for voice
+      audio_sample_rate: 16_000,
+      # Reduced FPS for lower latency
+      video_fps: 15,
+      # Discontinuous transmission
+      enable_opus_dtx: true,
       jitter_buffer_size: :minimal
     }
 
@@ -371,8 +387,10 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
     current_metrics = collect_webrtc_metrics(state)
 
     # Update quality history
-    quality_history = [current_metrics | state.quality_history]
-    |> Enum.take(10) # Keep last 10 measurements
+    quality_history =
+      [current_metrics | state.quality_history]
+      # Keep last 10 measurements
+      |> Enum.take(10)
 
     new_state = %{
       state
@@ -392,11 +410,16 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
     # In a real implementation, this would collect actual WebRTC metrics
     base_metrics = %{
       timestamp: System.monotonic_time(:millisecond),
-      audio_latency_ms: :rand.uniform(30) + 20, # Simulate 20-50ms
-      video_latency_ms: :rand.uniform(50) + 50, # Simulate 50-100ms
-      packet_loss_percent: :rand.uniform(10) / 10, # Simulate 0-1%
-      jitter_ms: :rand.uniform(10) + 5, # Simulate 5-15ms
-      bandwidth_usage_kbps: :rand.uniform(1000) + 500 # Simulate 500-1500 kbps
+      # Simulate 20-50ms
+      audio_latency_ms: :rand.uniform(30) + 20,
+      # Simulate 50-100ms
+      video_latency_ms: :rand.uniform(50) + 50,
+      # Simulate 0-1%
+      packet_loss_percent: :rand.uniform(10) / 10,
+      # Simulate 5-15ms
+      jitter_ms: :rand.uniform(10) + 5,
+      # Simulate 500-1500 kbps
+      bandwidth_usage_kbps: :rand.uniform(1000) + 500
     }
 
     # Add advanced metrics if monitoring is enabled
@@ -424,23 +447,26 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
   defp generate_adaptation_recommendations(metrics) do
     recommendations = []
 
-    recommendations = if metrics.audio_latency_ms > @adaptation_threshold_ms do
-      [:reduce_audio_bitrate, :minimize_buffer_size | recommendations]
-    else
-      recommendations
-    end
+    recommendations =
+      if metrics.audio_latency_ms > @adaptation_threshold_ms do
+        [:reduce_audio_bitrate, :minimize_buffer_size | recommendations]
+      else
+        recommendations
+      end
 
-    recommendations = if metrics.packet_loss_percent > 0.5 do
-      [:enable_error_correction, :reduce_bitrate | recommendations]
-    else
-      recommendations
-    end
+    recommendations =
+      if metrics.packet_loss_percent > 0.5 do
+        [:enable_error_correction, :reduce_bitrate | recommendations]
+      else
+        recommendations
+      end
 
-    recommendations = if metrics.jitter_ms > 20 do
-      [:increase_buffer_size, :enable_adaptive_playout | recommendations]
-    else
-      recommendations
-    end
+    recommendations =
+      if metrics.jitter_ms > 20 do
+        [:increase_buffer_size, :enable_adaptive_playout | recommendations]
+      else
+        recommendations
+      end
 
     recommendations
   end
@@ -479,9 +505,10 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
   defp perform_quality_adaptation(target_metrics, state) do
     recommendations = Map.get(target_metrics, :adaptation_recommendations, [])
 
-    adapted_state = Enum.reduce(recommendations, state, fn recommendation, acc_state ->
-      apply_adaptation_recommendation(recommendation, acc_state)
-    end)
+    adapted_state =
+      Enum.reduce(recommendations, state, fn recommendation, acc_state ->
+        apply_adaptation_recommendation(recommendation, acc_state)
+      end)
 
     %{adapted_state | adaptation_state: :adapting}
   end
@@ -564,9 +591,10 @@ defmodule LivekitexAgent.WebRTC.AdvancedFeatures do
   defp calculate_variance(numbers) do
     mean = Enum.sum(numbers) / length(numbers)
 
-    sum_of_squares = numbers
-    |> Enum.map(&(:math.pow(&1 - mean, 2)))
-    |> Enum.sum()
+    sum_of_squares =
+      numbers
+      |> Enum.map(&:math.pow(&1 - mean, 2))
+      |> Enum.sum()
 
     sum_of_squares / length(numbers)
   end

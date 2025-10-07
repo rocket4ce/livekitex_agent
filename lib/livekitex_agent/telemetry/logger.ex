@@ -50,12 +50,12 @@ defmodule LivekitexAgent.Telemetry.Logger do
   ]
 
   @type log_context :: %__MODULE__{
-    component: String.t(),
-    correlation_id: String.t() | nil,
-    session_id: String.t() | nil,
-    agent_id: String.t() | nil,
-    metadata: map()
-  }
+          component: String.t(),
+          correlation_id: String.t() | nil,
+          session_id: String.t() | nil,
+          agent_id: String.t() | nil,
+          metadata: map()
+        }
 
   @type log_level :: :debug | :info | :warn | :error
 
@@ -78,12 +78,13 @@ defmodule LivekitexAgent.Telemetry.Logger do
   Updates an existing log context with new values.
   """
   def update_context(context, opts) do
-    %{context |
-      component: Keyword.get(opts, :component, context.component),
-      correlation_id: Keyword.get(opts, :correlation_id, context.correlation_id),
-      session_id: Keyword.get(opts, :session_id, context.session_id),
-      agent_id: Keyword.get(opts, :agent_id, context.agent_id),
-      metadata: Map.merge(context.metadata, Keyword.get(opts, :metadata, %{}))
+    %{
+      context
+      | component: Keyword.get(opts, :component, context.component),
+        correlation_id: Keyword.get(opts, :correlation_id, context.correlation_id),
+        session_id: Keyword.get(opts, :session_id, context.session_id),
+        agent_id: Keyword.get(opts, :agent_id, context.agent_id),
+        metadata: Map.merge(context.metadata, Keyword.get(opts, :metadata, %{}))
     }
   end
 
@@ -176,12 +177,13 @@ defmodule LivekitexAgent.Telemetry.Logger do
     end_time = System.monotonic_time(:millisecond)
     duration_ms = end_time - start_time
 
-    fields_with_duration = [
-      operation: operation,
-      duration_ms: duration_ms,
-      start_time: start_time,
-      end_time: end_time
-    ] ++ fields
+    fields_with_duration =
+      [
+        operation: operation,
+        duration_ms: duration_ms,
+        start_time: start_time,
+        end_time: end_time
+      ] ++ fields
 
     level = if duration_ms > 5000, do: :warn, else: :info
     log(level, "Operation completed: #{operation}", fields_with_duration)
@@ -215,11 +217,12 @@ defmodule LivekitexAgent.Telemetry.Logger do
       error_message: Exception.message(exception)
     ]
 
-    error_fields = if stacktrace do
-      [{:stacktrace, Exception.format_stacktrace(stacktrace)} | error_fields]
-    else
-      error_fields
-    end
+    error_fields =
+      if stacktrace do
+        [{:stacktrace, Exception.format_stacktrace(stacktrace)} | error_fields]
+      else
+        error_fields
+      end
 
     error(message, error_fields ++ fields)
   end
@@ -228,11 +231,12 @@ defmodule LivekitexAgent.Telemetry.Logger do
   Logs an error with additional context when an operation fails.
   """
   def log_operation_error(operation, error, fields \\ []) do
-    error_fields = [
-      operation: operation,
-      error: inspect(error),
-      failed_at: DateTime.utc_now()
-    ] ++ fields
+    error_fields =
+      [
+        operation: operation,
+        error: inspect(error),
+        failed_at: DateTime.utc_now()
+      ] ++ fields
 
     error("Operation failed: #{operation}", error_fields)
   end
@@ -265,17 +269,19 @@ defmodule LivekitexAgent.Telemetry.Logger do
   Logs tool execution events with tool context.
   """
   def log_tool_execution(tool_name, result, duration_ms, fields \\ []) do
-    level = case result do
-      {:ok, _} -> :info
-      {:error, _} -> :error
-    end
+    level =
+      case result do
+        {:ok, _} -> :info
+        {:error, _} -> :error
+      end
 
-    tool_fields = [
-      tool: tool_name,
-      tool_result: result,
-      duration_ms: duration_ms,
-      executed_at: DateTime.utc_now()
-    ] ++ fields
+    tool_fields =
+      [
+        tool: tool_name,
+        tool_result: result,
+        duration_ms: duration_ms,
+        executed_at: DateTime.utc_now()
+      ] ++ fields
 
     log(level, "Tool executed: #{tool_name}", tool_fields)
   end
@@ -283,19 +289,28 @@ defmodule LivekitexAgent.Telemetry.Logger do
   @doc """
   Logs provider interactions (LLM, STT, TTS, VAD).
   """
-  def log_provider_interaction(provider_type, provider, operation, result, duration_ms, fields \\ []) do
-    level = case result do
-      {:ok, _} -> :info
-      {:error, _} -> :warn
-    end
+  def log_provider_interaction(
+        provider_type,
+        provider,
+        operation,
+        result,
+        duration_ms,
+        fields \\ []
+      ) do
+    level =
+      case result do
+        {:ok, _} -> :info
+        {:error, _} -> :warn
+      end
 
-    provider_fields = [
-      provider_type: provider_type,
-      provider: provider,
-      operation: operation,
-      result: result,
-      duration_ms: duration_ms
-    ] ++ fields
+    provider_fields =
+      [
+        provider_type: provider_type,
+        provider: provider,
+        operation: operation,
+        result: result,
+        duration_ms: duration_ms
+      ] ++ fields
 
     log(level, "Provider #{operation}: #{provider}", provider_fields)
   end
@@ -306,10 +321,11 @@ defmodule LivekitexAgent.Telemetry.Logger do
   Logs audio processing events with audio-specific context.
   """
   def log_audio_event(event, fields \\ []) do
-    audio_fields = [
-      audio_event: event,
-      timestamp: DateTime.utc_now()
-    ] ++ fields
+    audio_fields =
+      [
+        audio_event: event,
+        timestamp: DateTime.utc_now()
+      ] ++ fields
 
     info("Audio #{event}", audio_fields)
   end
@@ -318,10 +334,11 @@ defmodule LivekitexAgent.Telemetry.Logger do
   Logs audio processing performance metrics.
   """
   def log_audio_metrics(metrics, fields \\ []) do
-    metrics_fields = [
-      audio_metrics: metrics,
-      measured_at: DateTime.utc_now()
-    ] ++ fields
+    metrics_fields =
+      [
+        audio_metrics: metrics,
+        measured_at: DateTime.utc_now()
+      ] ++ fields
 
     debug("Audio processing metrics", metrics_fields)
   end
@@ -337,25 +354,28 @@ defmodule LivekitexAgent.Telemetry.Logger do
     }
 
     # Add correlation ID if present
-    log_with_correlation = if context.correlation_id do
-      Map.put(base_log, :correlation_id, context.correlation_id)
-    else
-      base_log
-    end
+    log_with_correlation =
+      if context.correlation_id do
+        Map.put(base_log, :correlation_id, context.correlation_id)
+      else
+        base_log
+      end
 
     # Add session ID if present
-    log_with_session = if context.session_id do
-      Map.put(log_with_correlation, :session_id, context.session_id)
-    else
-      log_with_correlation
-    end
+    log_with_session =
+      if context.session_id do
+        Map.put(log_with_correlation, :session_id, context.session_id)
+      else
+        log_with_correlation
+      end
 
     # Add agent ID if present
-    log_with_agent = if context.agent_id do
-      Map.put(log_with_session, :agent_id, context.agent_id)
-    else
-      log_with_session
-    end
+    log_with_agent =
+      if context.agent_id do
+        Map.put(log_with_session, :agent_id, context.agent_id)
+      else
+        log_with_session
+      end
 
     # Merge context metadata and provided fields
     all_context = Map.merge(context.metadata, Enum.into(fields, %{}))
@@ -381,16 +401,18 @@ defmodule LivekitexAgent.Telemetry.Logger do
     message = Map.get(log, :message, "")
     component = Map.get(log, :component, "")
 
-    context_str = case Map.get(log, :context) do
-      nil -> ""
-      context when map_size(context) == 0 -> ""
-      context -> " #{inspect(context)}"
-    end
+    context_str =
+      case Map.get(log, :context) do
+        nil -> ""
+        context when map_size(context) == 0 -> ""
+        context -> " #{inspect(context)}"
+      end
 
-    correlation_str = case Map.get(log, :correlation_id) do
-      nil -> ""
-      id -> " [#{id}]"
-    end
+    correlation_str =
+      case Map.get(log, :correlation_id) do
+        nil -> ""
+        id -> " [#{id}]"
+      end
 
     "#{timestamp} [#{level}] #{component}#{correlation_str}: #{message}#{context_str}"
   end

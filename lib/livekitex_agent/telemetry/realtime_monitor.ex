@@ -51,9 +51,11 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
   use GenServer
   require Logger
 
-  @monitor_interval_ms 250 # 4Hz monitoring for real-time performance
+  # 4Hz monitoring for real-time performance
+  @monitor_interval_ms 250
   @history_retention_minutes 60
-  @alert_cooldown_ms 30_000 # 30 second cooldown between alerts
+  # 30 second cooldown between alerts
+  @alert_cooldown_ms 30_000
 
   defstruct [
     :session_pid,
@@ -75,11 +77,23 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
     }
   ]
 
-  @type component :: :audio_processor | :webrtc_handler | :llm_client | :stream_manager |
-                     :speech_handle | :vad_client | :session
+  @type component ::
+          :audio_processor
+          | :webrtc_handler
+          | :llm_client
+          | :stream_manager
+          | :speech_handle
+          | :vad_client
+          | :session
 
-  @type metric_type :: :latency_ms | :quality_score | :memory_mb | :cpu_percent |
-                       :error_rate | :throughput | :availability
+  @type metric_type ::
+          :latency_ms
+          | :quality_score
+          | :memory_mb
+          | :cpu_percent
+          | :error_rate
+          | :throughput
+          | :availability
 
   @type alert_level :: :info | :warning | :error | :critical
 
@@ -170,17 +184,24 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
       session_pid: session_pid,
       monitored_components: Keyword.get(opts, :components, []),
       alert_thresholds: Keyword.get(opts, :alert_thresholds, default_alert_thresholds()),
-      performance_targets: Keyword.merge(default_performance_targets(),
-                                        Keyword.get(opts, :performance_targets, %{}))
+      performance_targets:
+        Keyword.merge(
+          default_performance_targets(),
+          Keyword.get(opts, :performance_targets, %{})
+        )
     }
 
     # Start monitoring timer
     :timer.send_interval(@monitor_interval_ms, self(), :collect_metrics)
 
     # Start history cleanup timer
-    :timer.send_interval(60_000, self(), :cleanup_history) # Every minute
+    # Every minute
+    :timer.send_interval(60_000, self(), :cleanup_history)
 
-    Logger.info("RealtimeMonitor started for session with components: #{inspect(state.monitored_components)}")
+    Logger.info(
+      "RealtimeMonitor started for session with components: #{inspect(state.monitored_components)}"
+    )
+
     {:ok, state}
   end
 
@@ -191,11 +212,12 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
 
   @impl true
   def handle_call({:get_performance_history, minutes}, _from, state) do
-    cutoff_time = System.monotonic_time(:millisecond) - (minutes * 60 * 1000)
+    cutoff_time = System.monotonic_time(:millisecond) - minutes * 60 * 1000
 
-    filtered_history = Enum.filter(state.performance_history, fn entry ->
-      entry.timestamp >= cutoff_time
-    end)
+    filtered_history =
+      Enum.filter(state.performance_history, fn entry ->
+        entry.timestamp >= cutoff_time
+      end)
 
     {:reply, filtered_history, state}
   end
@@ -278,7 +300,9 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
 
     # Add system-level metrics
     system_metrics = collect_system_metrics()
-    all_metrics = Map.merge(metrics, %{system: system_metrics, timestamp: System.monotonic_time(:millisecond)})
+
+    all_metrics =
+      Map.merge(metrics, %{system: system_metrics, timestamp: System.monotonic_time(:millisecond)})
 
     # Calculate derived metrics
     enhanced_metrics = calculate_derived_metrics(all_metrics, state)
@@ -312,31 +336,32 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
 
   defp collect_component_metrics(components) do
     Enum.reduce(components, %{}, fn component, acc ->
-      metrics = case component do
-        :audio_processor ->
-          collect_audio_processor_metrics()
+      metrics =
+        case component do
+          :audio_processor ->
+            collect_audio_processor_metrics()
 
-        :webrtc_handler ->
-          collect_webrtc_handler_metrics()
+          :webrtc_handler ->
+            collect_webrtc_handler_metrics()
 
-        :llm_client ->
-          collect_llm_client_metrics()
+          :llm_client ->
+            collect_llm_client_metrics()
 
-        :stream_manager ->
-          collect_stream_manager_metrics()
+          :stream_manager ->
+            collect_stream_manager_metrics()
 
-        :speech_handle ->
-          collect_speech_handle_metrics()
+          :speech_handle ->
+            collect_speech_handle_metrics()
 
-        :vad_client ->
-          collect_vad_client_metrics()
+          :vad_client ->
+            collect_vad_client_metrics()
 
-        :session ->
-          collect_session_metrics()
+          :session ->
+            collect_session_metrics()
 
-        _ ->
-          %{error: :unknown_component}
-      end
+          _ ->
+            %{error: :unknown_component}
+        end
 
       Map.put(acc, component, metrics)
     end)
@@ -345,11 +370,16 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
   defp collect_audio_processor_metrics do
     # In a real implementation, this would query the actual audio processor
     %{
-      latency_ms: :rand.uniform(30) + 20, # 20-50ms
-      quality_score: 4.0 + (:rand.uniform(10) / 10), # 4.0-5.0
-      buffer_utilization: :rand.uniform(100) / 100, # 0-100%
-      processing_time_ms: :rand.uniform(10) + 5, # 5-15ms
-      dropped_frames: :rand.uniform(5), # 0-5 dropped frames
+      # 20-50ms
+      latency_ms: :rand.uniform(30) + 20,
+      # 4.0-5.0
+      quality_score: 4.0 + :rand.uniform(10) / 10,
+      # 0-100%
+      buffer_utilization: :rand.uniform(100) / 100,
+      # 5-15ms
+      processing_time_ms: :rand.uniform(10) + 5,
+      # 0-5 dropped frames
+      dropped_frames: :rand.uniform(5),
       sample_rate: 16000,
       channels: 1
     }
@@ -357,10 +387,14 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
 
   defp collect_webrtc_handler_metrics do
     %{
-      connection_latency_ms: :rand.uniform(50) + 25, # 25-75ms
-      packet_loss_percent: :rand.uniform(20) / 10, # 0-2%
-      jitter_ms: :rand.uniform(15) + 5, # 5-20ms
-      bandwidth_kbps: :rand.uniform(500) + 500, # 500-1000 kbps
+      # 25-75ms
+      connection_latency_ms: :rand.uniform(50) + 25,
+      # 0-2%
+      packet_loss_percent: :rand.uniform(20) / 10,
+      # 5-20ms
+      jitter_ms: :rand.uniform(15) + 5,
+      # 500-1000 kbps
+      bandwidth_kbps: :rand.uniform(500) + 500,
       connection_quality: [:excellent, :good, :fair] |> Enum.random(),
       ice_connection_state: :connected,
       dtls_state: :connected
@@ -369,66 +403,101 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
 
   defp collect_llm_client_metrics do
     %{
-      response_time_ms: :rand.uniform(500) + 200, # 200-700ms
-      tokens_per_second: :rand.uniform(50) + 25, # 25-75 tokens/sec
-      context_length: :rand.uniform(1000) + 500, # 500-1500 tokens
-      api_latency_ms: :rand.uniform(300) + 100, # 100-400ms
-      success_rate: 0.95 + (:rand.uniform(5) / 100), # 95-100%
-      error_count: :rand.uniform(3) # 0-3 errors
+      # 200-700ms
+      response_time_ms: :rand.uniform(500) + 200,
+      # 25-75 tokens/sec
+      tokens_per_second: :rand.uniform(50) + 25,
+      # 500-1500 tokens
+      context_length: :rand.uniform(1000) + 500,
+      # 100-400ms
+      api_latency_ms: :rand.uniform(300) + 100,
+      # 95-100%
+      success_rate: 0.95 + :rand.uniform(5) / 100,
+      # 0-3 errors
+      error_count: :rand.uniform(3)
     }
   end
 
   defp collect_stream_manager_metrics do
     %{
-      buffer_latency_ms: :rand.uniform(20) + 10, # 10-30ms
-      sync_drift_ms: :rand.uniform(10), # 0-10ms
-      active_streams: :rand.uniform(3) + 1, # 1-4 streams
-      buffer_overruns: :rand.uniform(2), # 0-2 overruns
-      buffer_underruns: :rand.uniform(2), # 0-2 underruns
-      processing_efficiency: 0.85 + (:rand.uniform(15) / 100) # 85-100%
+      # 10-30ms
+      buffer_latency_ms: :rand.uniform(20) + 10,
+      # 0-10ms
+      sync_drift_ms: :rand.uniform(10),
+      # 1-4 streams
+      active_streams: :rand.uniform(3) + 1,
+      # 0-2 overruns
+      buffer_overruns: :rand.uniform(2),
+      # 0-2 underruns
+      buffer_underruns: :rand.uniform(2),
+      # 85-100%
+      processing_efficiency: 0.85 + :rand.uniform(15) / 100
     }
   end
 
   defp collect_speech_handle_metrics do
     %{
-      speech_latency_ms: :rand.uniform(40) + 10, # 10-50ms
-      interruption_response_ms: :rand.uniform(50) + 25, # 25-75ms
-      active_handles: :rand.uniform(3) + 1, # 1-4 handles
-      successful_interruptions: :rand.uniform(10), # 0-10
-      failed_interruptions: :rand.uniform(2) # 0-2 failures
+      # 10-50ms
+      speech_latency_ms: :rand.uniform(40) + 10,
+      # 25-75ms
+      interruption_response_ms: :rand.uniform(50) + 25,
+      # 1-4 handles
+      active_handles: :rand.uniform(3) + 1,
+      # 0-10
+      successful_interruptions: :rand.uniform(10),
+      # 0-2 failures
+      failed_interruptions: :rand.uniform(2)
     }
   end
 
   defp collect_vad_client_metrics do
     %{
-      detection_latency_ms: :rand.uniform(15) + 5, # 5-20ms
-      sensitivity: 0.7, # Current sensitivity setting
-      speech_detection_rate: 0.9 + (:rand.uniform(10) / 100), # 90-100%
-      false_positive_rate: (:rand.uniform(5) / 100), # 0-5%
-      processing_load: :rand.uniform(30) + 10 # 10-40% CPU
+      # 5-20ms
+      detection_latency_ms: :rand.uniform(15) + 5,
+      # Current sensitivity setting
+      sensitivity: 0.7,
+      # 90-100%
+      speech_detection_rate: 0.9 + :rand.uniform(10) / 100,
+      # 0-5%
+      false_positive_rate: :rand.uniform(5) / 100,
+      # 10-40% CPU
+      processing_load: :rand.uniform(30) + 10
     }
   end
 
   defp collect_session_metrics do
     %{
-      uptime_seconds: :rand.uniform(3600) + 60, # 1-61 minutes
-      total_turns: :rand.uniform(50) + 5, # 5-55 turns
-      avg_turn_duration_ms: :rand.uniform(2000) + 1000, # 1-3 seconds
-      interruption_rate: (:rand.uniform(20) / 100), # 0-20%
-      user_satisfaction_score: 3.5 + (:rand.uniform(15) / 10), # 3.5-5.0
-      memory_usage_mb: :rand.uniform(200) + 100 # 100-300 MB
+      # 1-61 minutes
+      uptime_seconds: :rand.uniform(3600) + 60,
+      # 5-55 turns
+      total_turns: :rand.uniform(50) + 5,
+      # 1-3 seconds
+      avg_turn_duration_ms: :rand.uniform(2000) + 1000,
+      # 0-20%
+      interruption_rate: :rand.uniform(20) / 100,
+      # 3.5-5.0
+      user_satisfaction_score: 3.5 + :rand.uniform(15) / 10,
+      # 100-300 MB
+      memory_usage_mb: :rand.uniform(200) + 100
     }
   end
 
   defp collect_system_metrics do
     %{
-      cpu_utilization: :rand.uniform(50) + 20, # 20-70%
-      memory_total_mb: 8192, # 8GB system
-      memory_used_mb: :rand.uniform(4096) + 2048, # 2-6GB used
-      network_latency_ms: :rand.uniform(20) + 5, # 5-25ms
-      disk_io_utilization: :rand.uniform(30) + 10, # 10-40%
-      active_processes: :rand.uniform(50) + 100, # 100-150 processes
-      system_load: :rand.uniform(200) + 50 # 50-250% system load
+      # 20-70%
+      cpu_utilization: :rand.uniform(50) + 20,
+      # 8GB system
+      memory_total_mb: 8192,
+      # 2-6GB used
+      memory_used_mb: :rand.uniform(4096) + 2048,
+      # 5-25ms
+      network_latency_ms: :rand.uniform(20) + 5,
+      # 10-40%
+      disk_io_utilization: :rand.uniform(30) + 10,
+      # 100-150 processes
+      active_processes: :rand.uniform(50) + 100,
+      # 50-250% system load
+      system_load: :rand.uniform(200) + 50
     }
   end
 
@@ -438,7 +507,8 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
     webrtc_latency = get_in(metrics, [:webrtc_handler, :connection_latency_ms]) || 0
     llm_latency = get_in(metrics, [:llm_client, :response_time_ms]) || 0
 
-    end_to_end_latency = audio_latency + webrtc_latency + (llm_latency * 0.1) # LLM runs in parallel
+    # LLM runs in parallel
+    end_to_end_latency = audio_latency + webrtc_latency + llm_latency * 0.1
 
     # Calculate overall system health score
     health_score = calculate_health_score(metrics, state.performance_targets)
@@ -462,43 +532,51 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
 
     # Audio latency score
     audio_latency = get_in(metrics, [:audio_processor, :latency_ms])
-    scores = if audio_latency do
-      target = targets.audio_latency_ms
-      score = max(0, 100 - (audio_latency - target) * 2)
-      [score | scores]
-    else
-      scores
-    end
+
+    scores =
+      if audio_latency do
+        target = targets.audio_latency_ms
+        score = max(0, 100 - (audio_latency - target) * 2)
+        [score | scores]
+      else
+        scores
+      end
 
     # Quality score
     quality = get_in(metrics, [:audio_processor, :quality_score])
-    scores = if quality do
-      target = targets.audio_quality_score
-      score = (quality / target) * 100 |> min(100)
-      [score | scores]
-    else
-      scores
-    end
+
+    scores =
+      if quality do
+        target = targets.audio_quality_score
+        score = (quality / target * 100) |> min(100)
+        [score | scores]
+      else
+        scores
+      end
 
     # CPU utilization score
     cpu = get_in(metrics, [:system, :cpu_utilization])
-    scores = if cpu do
-      target = targets.cpu_utilization_percent
-      score = max(0, 100 - max(0, cpu - target))
-      [score | scores]
-    else
-      scores
-    end
+
+    scores =
+      if cpu do
+        target = targets.cpu_utilization_percent
+        score = max(0, 100 - max(0, cpu - target))
+        [score | scores]
+      else
+        scores
+      end
 
     # Memory usage score
     memory = get_in(metrics, [:session, :memory_usage_mb])
-    scores = if memory do
-      target = targets.memory_usage_mb
-      score = max(0, 100 - max(0, memory - target) / target * 100)
-      [score | scores]
-    else
-      scores
-    end
+
+    scores =
+      if memory do
+        target = targets.memory_usage_mb
+        score = max(0, 100 - max(0, memory - target) / target * 100)
+        [score | scores]
+      else
+        scores
+      end
 
     if length(scores) > 0 do
       Enum.sum(scores) / length(scores)
@@ -523,7 +601,8 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
       cpu_efficiency: calculate_cpu_efficiency(metrics),
       memory_efficiency: calculate_memory_efficiency(metrics),
       network_efficiency: calculate_network_efficiency(metrics),
-      overall_efficiency: 0.85 # Placeholder calculation
+      # Placeholder calculation
+      overall_efficiency: 0.85
     }
   end
 
@@ -531,10 +610,14 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
     cpu_util = get_in(metrics, [:system, :cpu_utilization]) || 50
     # Efficiency based on getting good performance without over-utilizing CPU
     cond do
-      cpu_util < 30 -> 0.7 # Under-utilizing
-      cpu_util < 70 -> 1.0 # Optimal range
-      cpu_util < 90 -> 0.8 # High but acceptable
-      true -> 0.5 # Over-utilizing
+      # Under-utilizing
+      cpu_util < 30 -> 0.7
+      # Optimal range
+      cpu_util < 70 -> 1.0
+      # High but acceptable
+      cpu_util < 90 -> 0.8
+      # Over-utilizing
+      true -> 0.5
     end
   end
 
@@ -544,10 +627,14 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
     utilization = memory_used / memory_total
 
     cond do
-      utilization < 0.3 -> 0.7 # Under-utilizing
-      utilization < 0.7 -> 1.0 # Optimal range
-      utilization < 0.9 -> 0.8 # High but acceptable
-      true -> 0.5 # Over-utilizing
+      # Under-utilizing
+      utilization < 0.3 -> 0.7
+      # Optimal range
+      utilization < 0.7 -> 1.0
+      # High but acceptable
+      utilization < 0.9 -> 0.8
+      # Over-utilizing
+      true -> 0.5
     end
   end
 
@@ -556,8 +643,10 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
     jitter = get_in(metrics, [:webrtc_handler, :jitter_ms]) || 10
 
     # Efficiency based on minimal packet loss and jitter
-    loss_score = max(0, 1.0 - packet_loss / 5.0) # 5% loss = 0 efficiency
-    jitter_score = max(0, 1.0 - jitter / 50.0) # 50ms jitter = 0 efficiency
+    # 5% loss = 0 efficiency
+    loss_score = max(0, 1.0 - packet_loss / 5.0)
+    # 50ms jitter = 0 efficiency
+    jitter_score = max(0, 1.0 - jitter / 50.0)
 
     (loss_score + jitter_score) / 2
   end
@@ -568,8 +657,12 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
     updated_alert_times = state.last_alert_times
 
     # Check each configured threshold
-    {alerts, alert_times} = Enum.reduce(state.alert_thresholds, {new_alerts, updated_alert_times},
-      fn {metric, {threshold, level}}, {acc_alerts, acc_times} ->
+    {alerts, alert_times} =
+      Enum.reduce(state.alert_thresholds, {new_alerts, updated_alert_times}, fn {metric,
+                                                                                 {threshold,
+                                                                                  level}},
+                                                                                {acc_alerts,
+                                                                                 acc_times} ->
         case get_metric_value(metrics, metric) do
           nil ->
             {acc_alerts, acc_times}
@@ -577,6 +670,7 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
           value when value > threshold ->
             # Check cooldown
             last_alert_time = Map.get(acc_times, metric, 0)
+
             if current_time - last_alert_time > @alert_cooldown_ms do
               alert = create_alert(metric, value, threshold, level, current_time)
               new_acc_alerts = [alert | acc_alerts]
@@ -616,7 +710,7 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
     total_operations = get_in(metrics, [:session, :total_turns]) || 1
     total_errors = llm_errors + speech_errors
 
-    (total_errors / total_operations) * 100
+    total_errors / total_operations * 100
   end
 
   defp create_alert(metric, value, threshold, level, timestamp) do
@@ -650,7 +744,10 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
       ]
 
       success_count = Enum.count(optimization_results, &(&1 == :ok))
-      Logger.info("Optimization completed: #{success_count}/#{length(optimization_results)} successful")
+
+      Logger.info(
+        "Optimization completed: #{success_count}/#{length(optimization_results)} successful"
+      )
 
       {:ok, %{state | optimization_state: :optimized}}
     rescue
@@ -690,24 +787,29 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
   end
 
   defp cleanup_old_history(state) do
-    cutoff_time = System.monotonic_time(:millisecond) - (@history_retention_minutes * 60 * 1000)
+    cutoff_time = System.monotonic_time(:millisecond) - @history_retention_minutes * 60 * 1000
 
-    filtered_history = Enum.filter(state.performance_history, fn entry ->
-      entry.timestamp >= cutoff_time
-    end)
+    filtered_history =
+      Enum.filter(state.performance_history, fn entry ->
+        entry.timestamp >= cutoff_time
+      end)
 
     %{state | performance_history: filtered_history}
   end
 
   defp generate_report(state, minutes) do
-    cutoff_time = System.monotonic_time(:millisecond) - (minutes * 60 * 1000)
+    cutoff_time = System.monotonic_time(:millisecond) - minutes * 60 * 1000
 
-    relevant_history = Enum.filter(state.performance_history, fn entry ->
-      entry.timestamp >= cutoff_time
-    end)
+    relevant_history =
+      Enum.filter(state.performance_history, fn entry ->
+        entry.timestamp >= cutoff_time
+      end)
 
     if length(relevant_history) == 0 do
-      %{error: :insufficient_data, message: "No performance data available for the requested time period"}
+      %{
+        error: :insufficient_data,
+        message: "No performance data available for the requested time period"
+      }
     else
       %{
         period_minutes: minutes,
@@ -754,7 +856,7 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
       first_avg = Enum.sum(first_half) / length(first_half)
       second_avg = Enum.sum(second_half) / length(second_half)
 
-      change_percent = ((second_avg - first_avg) / first_avg) * 100
+      change_percent = (second_avg - first_avg) / first_avg * 100
 
       cond do
         abs(change_percent) < 5 -> :stable
@@ -768,25 +870,28 @@ defmodule LivekitexAgent.Telemetry.RealtimeMonitor do
     recommendations = []
 
     # Check latency trends
-    recommendations = if calculate_average(history, [:derived, :end_to_end_latency_ms]) > 100 do
-      ["Consider enabling latency optimization features" | recommendations]
-    else
-      recommendations
-    end
+    recommendations =
+      if calculate_average(history, [:derived, :end_to_end_latency_ms]) > 100 do
+        ["Consider enabling latency optimization features" | recommendations]
+      else
+        recommendations
+      end
 
     # Check resource utilization
-    recommendations = if calculate_average(history, [:system, :cpu_utilization]) > 80 do
-      ["CPU utilization is high - consider scaling resources" | recommendations]
-    else
-      recommendations
-    end
+    recommendations =
+      if calculate_average(history, [:system, :cpu_utilization]) > 80 do
+        ["CPU utilization is high - consider scaling resources" | recommendations]
+      else
+        recommendations
+      end
 
     # Check quality trends
-    recommendations = if calculate_average(history, [:audio_processor, :quality_score]) < 4.0 do
-      ["Audio quality is below target - check network conditions" | recommendations]
-    else
-      recommendations
-    end
+    recommendations =
+      if calculate_average(history, [:audio_processor, :quality_score]) < 4.0 do
+        ["Audio quality is below target - check network conditions" | recommendations]
+      else
+        recommendations
+      end
 
     if length(recommendations) == 0 do
       ["Performance is within acceptable ranges"]

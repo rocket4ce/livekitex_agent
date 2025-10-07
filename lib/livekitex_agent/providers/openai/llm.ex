@@ -195,17 +195,19 @@ defmodule LivekitexAgent.Providers.OpenAI.LLM do
       max_tokens: state.max_tokens,
       tools_count: length(state.tools)
     }
+
     {:reply, config, state}
   end
 
   # Private Functions
 
   defp build_messages_array(message, context, system_instructions) do
-    base_messages = if system_instructions do
-      [%{role: "system", content: system_instructions}]
-    else
-      []
-    end
+    base_messages =
+      if system_instructions do
+        [%{role: "system", content: system_instructions}]
+      else
+        []
+      end
 
     # Add conversation context
     messages_with_context = base_messages ++ context
@@ -236,11 +238,12 @@ defmodule LivekitexAgent.Providers.OpenAI.LLM do
     }
 
     # Add tools if available
-    body = if length(state.tools) > 0 do
-      Map.put(body, :tools, format_tools_for_openai(state.tools))
-    else
-      body
-    end
+    body =
+      if length(state.tools) > 0 do
+        Map.put(body, :tools, format_tools_for_openai(state.tools))
+      else
+        body
+      end
 
     case Jason.encode(body) do
       {:ok, json_body} ->
@@ -309,6 +312,7 @@ defmodule LivekitexAgent.Providers.OpenAI.LLM do
       case LivekitexAgent.ToolRegistry.get_tool(tool_name) do
         {:ok, tool_info} ->
           Map.get(tool_info, :description, "Tool: #{tool_name}")
+
         {:error, _} ->
           "Tool: #{tool_name}"
       end
@@ -324,6 +328,7 @@ defmodule LivekitexAgent.Providers.OpenAI.LLM do
       case LivekitexAgent.ToolRegistry.get_tool(tool_name) do
         {:ok, tool_info} ->
           Map.get(tool_info, :schema, %{type: "object", properties: %{}})
+
         {:error, _} ->
           %{type: "object", properties: %{}}
       end

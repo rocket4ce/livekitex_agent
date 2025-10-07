@@ -56,48 +56,48 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
   ]
 
   @type connection_info :: %{
-    connection_id: String.t(),
-    agent_session_id: String.t(),
-    room_name: String.t(),
-    webrtc_handler: pid(),
-    connection_state: atom(),
-    participant_identity: String.t(),
-    quality_metrics: map(),
-    created_at: DateTime.t(),
-    last_activity: DateTime.t()
-  }
+          connection_id: String.t(),
+          agent_session_id: String.t(),
+          room_name: String.t(),
+          webrtc_handler: pid(),
+          connection_state: atom(),
+          participant_identity: String.t(),
+          quality_metrics: map(),
+          created_at: DateTime.t(),
+          last_activity: DateTime.t()
+        }
 
   @type room_info :: %{
-    room_name: String.t(),
-    connection_count: non_neg_integer(),
-    participants: map(),
-    quality_score: float(),
-    created_at: DateTime.t(),
-    last_activity: DateTime.t()
-  }
+          room_name: String.t(),
+          connection_count: non_neg_integer(),
+          participants: map(),
+          quality_score: float(),
+          created_at: DateTime.t(),
+          last_activity: DateTime.t()
+        }
 
   @type manager_config :: %{
-    livekit_url: String.t(),
-    api_key: String.t(),
-    api_secret: String.t(),
-    default_strategy: atom(),
-    max_connections_per_room: integer(),
-    connection_timeout: integer(),
-    enable_load_balancing: boolean(),
-    enable_auto_cleanup: boolean()
-  }
+          livekit_url: String.t(),
+          api_key: String.t(),
+          api_secret: String.t(),
+          default_strategy: atom(),
+          max_connections_per_room: integer(),
+          connection_timeout: integer(),
+          enable_load_balancing: boolean(),
+          enable_auto_cleanup: boolean()
+        }
 
   @type t :: %__MODULE__{
-    connections: map(),
-    rooms: map(),
-    agent_sessions: map(),
-    config: manager_config(),
-    metrics: map(),
-    heartbeat_timer: reference() | nil,
-    cleanup_timer: reference() | nil,
-    event_callbacks: map(),
-    connection_strategies: map()
-  }
+          connections: map(),
+          rooms: map(),
+          agent_sessions: map(),
+          config: manager_config(),
+          metrics: map(),
+          heartbeat_timer: reference() | nil,
+          cleanup_timer: reference() | nil,
+          event_callbacks: map(),
+          connection_strategies: map()
+        }
 
   # Client API
 
@@ -230,7 +230,8 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
       api_key: Keyword.fetch!(opts, :api_key),
       api_secret: Keyword.fetch!(opts, :api_secret),
       default_strategy: Keyword.get(opts, :default_strategy, :single_room),
-      max_connections_per_room: Keyword.get(opts, :max_connections_per_room, @max_connections_per_room),
+      max_connections_per_room:
+        Keyword.get(opts, :max_connections_per_room, @max_connections_per_room),
       connection_timeout: Keyword.get(opts, :connection_timeout, @connection_timeout),
       enable_load_balancing: Keyword.get(opts, :enable_load_balancing, true),
       enable_auto_cleanup: Keyword.get(opts, :enable_auto_cleanup, true)
@@ -250,9 +251,11 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
 
     # Start periodic timers
     heartbeat_timer = Process.send_after(self(), :heartbeat, @heartbeat_interval)
-    cleanup_timer = if config.enable_auto_cleanup do
-      Process.send_after(self(), :auto_cleanup, @cleanup_interval)
-    end
+
+    cleanup_timer =
+      if config.enable_auto_cleanup do
+        Process.send_after(self(), :auto_cleanup, @cleanup_interval)
+      end
 
     state = %{state | heartbeat_timer: heartbeat_timer, cleanup_timer: cleanup_timer}
 
@@ -273,7 +276,12 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
 
       {:error, reason} ->
         Logger.error("Failed to create connection: #{inspect(reason)}")
-        emit_event(state, :connection_failed, %{agent_session_id: agent_session_id, reason: reason})
+
+        emit_event(state, :connection_failed, %{
+          agent_session_id: agent_session_id,
+          reason: reason
+        })
+
         {:reply, {:error, reason}, state}
     end
   end
@@ -298,10 +306,11 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
         new_rooms = update_room_on_connection_removal(state.rooms, connection_info.room_name)
         new_agent_sessions = Map.delete(state.agent_sessions, connection_info.agent_session_id)
 
-        new_state = %{state |
-          connections: new_connections,
-          rooms: new_rooms,
-          agent_sessions: new_agent_sessions
+        new_state = %{
+          state
+          | connections: new_connections,
+            rooms: new_rooms,
+            agent_sessions: new_agent_sessions
         }
 
         emit_event(new_state, :connection_removed, connection_info)
@@ -341,10 +350,7 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
     new_strategies = Map.put(state.connection_strategies, strategy, options)
     new_config = %{state.config | default_strategy: strategy}
 
-    new_state = %{state |
-      connection_strategies: new_strategies,
-      config: new_config
-    }
+    new_state = %{state | connection_strategies: new_strategies, config: new_config}
 
     Logger.info("Connection strategy updated to: #{strategy}")
     {:reply, :ok, new_state}
@@ -413,7 +419,8 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
         connection_id = generate_connection_id()
 
         # Create participant identity
-        participant_identity = Keyword.get(opts, :participant_identity, "agent_#{agent_session_id}")
+        participant_identity =
+          Keyword.get(opts, :participant_identity, "agent_#{agent_session_id}")
 
         # Start WebRTC handler
         webrtc_opts = [
@@ -445,13 +452,17 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
 
             # Update state
             new_connections = Map.put(state.connections, connection_id, connection_info)
-            new_rooms = update_room_on_connection_creation(state.rooms, room_name, connection_info)
+
+            new_rooms =
+              update_room_on_connection_creation(state.rooms, room_name, connection_info)
+
             new_agent_sessions = Map.put(state.agent_sessions, agent_session_id, connection_id)
 
-            new_state = %{state |
-              connections: new_connections,
-              rooms: new_rooms,
-              agent_sessions: new_agent_sessions
+            new_state = %{
+              state
+              | connections: new_connections,
+                rooms: new_rooms,
+                agent_sessions: new_agent_sessions
             }
 
             # Start connection
@@ -497,11 +508,12 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
 
   defp find_optimal_room(state) do
     # Find room with lowest connection count under the limit
-    optimal_room = state.rooms
-    |> Enum.filter(fn {_name, room_info} ->
-      room_info.connection_count < state.config.max_connections_per_room
-    end)
-    |> Enum.min_by(fn {_name, room_info} -> room_info.connection_count end, fn -> nil end)
+    optimal_room =
+      state.rooms
+      |> Enum.filter(fn {_name, room_info} ->
+        room_info.connection_count < state.config.max_connections_per_room
+      end)
+      |> Enum.min_by(fn {_name, room_info} -> room_info.connection_count end, fn -> nil end)
 
     case optimal_room do
       {room_name, _room_info} -> {:ok, room_name}
@@ -521,15 +533,23 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
           created_at: DateTime.utc_now(),
           last_activity: DateTime.utc_now()
         }
+
         Map.put(rooms, room_name, room_info)
 
       room_info ->
         # Update existing room
-        updated_room = %{room_info |
-          connection_count: room_info.connection_count + 1,
-          participants: Map.put(room_info.participants, connection_info.participant_identity, connection_info.connection_id),
-          last_activity: DateTime.utc_now()
+        updated_room = %{
+          room_info
+          | connection_count: room_info.connection_count + 1,
+            participants:
+              Map.put(
+                room_info.participants,
+                connection_info.participant_identity,
+                connection_info.connection_id
+              ),
+            last_activity: DateTime.utc_now()
         }
+
         Map.put(rooms, room_name, updated_room)
     end
   end
@@ -547,10 +567,12 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
           Map.delete(rooms, room_name)
         else
           # Update room
-          updated_room = %{room_info |
-            connection_count: new_count,
-            last_activity: DateTime.utc_now()
+          updated_room = %{
+            room_info
+            | connection_count: new_count,
+              last_activity: DateTime.utc_now()
           }
+
           Map.put(rooms, room_name, updated_room)
         end
     end
@@ -572,9 +594,10 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
 
   defp perform_cleanup(state) do
     # Remove failed connections
-    {active_connections, failed_connections} = Enum.split_with(state.connections, fn {_id, conn} ->
-      conn.webrtc_handler && Process.alive?(conn.webrtc_handler)
-    end)
+    {active_connections, failed_connections} =
+      Enum.split_with(state.connections, fn {_id, conn} ->
+        conn.webrtc_handler && Process.alive?(conn.webrtc_handler)
+      end)
 
     # Clean up failed connections
     Enum.each(failed_connections, fn {_id, conn} ->
@@ -585,26 +608,28 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
 
     # Update rooms to remove connections that no longer exist
     active_connection_map = Map.new(active_connections)
-    cleaned_rooms = Enum.reduce(state.rooms, %{}, fn {room_name, room_info}, acc ->
-      active_participants = Enum.filter(room_info.participants, fn {_identity, conn_id} ->
-        Map.has_key?(active_connection_map, conn_id)
+
+    cleaned_rooms =
+      Enum.reduce(state.rooms, %{}, fn {room_name, room_info}, acc ->
+        active_participants =
+          Enum.filter(room_info.participants, fn {_identity, conn_id} ->
+            Map.has_key?(active_connection_map, conn_id)
+          end)
+
+        if length(active_participants) > 0 do
+          updated_room = %{
+            room_info
+            | connection_count: length(active_participants),
+              participants: Map.new(active_participants)
+          }
+
+          Map.put(acc, room_name, updated_room)
+        else
+          acc
+        end
       end)
 
-      if length(active_participants) > 0 do
-        updated_room = %{room_info |
-          connection_count: length(active_participants),
-          participants: Map.new(active_participants)
-        }
-        Map.put(acc, room_name, updated_room)
-      else
-        acc
-      end
-    end)
-
-    new_state = %{state |
-      connections: active_connection_map,
-      rooms: cleaned_rooms
-    }
+    new_state = %{state | connections: active_connection_map, rooms: cleaned_rooms}
 
     Logger.info("Cleanup completed: #{length(failed_connections)} connections removed")
     new_state
@@ -612,22 +637,22 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
 
   defp update_connection_health(state) do
     # Update health metrics for all connections
-    updated_connections = Enum.reduce(state.connections, %{}, fn {id, conn}, acc ->
-      if conn.webrtc_handler && Process.alive?(conn.webrtc_handler) do
-        try do
-          {:ok, metrics} = LivekitexAgent.Realtime.WebRTCHandler.get_metrics(conn.webrtc_handler)
-          updated_conn = %{conn |
-            quality_metrics: metrics,
-            last_activity: DateTime.utc_now()
-          }
-          Map.put(acc, id, updated_conn)
-        rescue
-          _ -> Map.put(acc, id, conn)
+    updated_connections =
+      Enum.reduce(state.connections, %{}, fn {id, conn}, acc ->
+        if conn.webrtc_handler && Process.alive?(conn.webrtc_handler) do
+          try do
+            {:ok, metrics} =
+              LivekitexAgent.Realtime.WebRTCHandler.get_metrics(conn.webrtc_handler)
+
+            updated_conn = %{conn | quality_metrics: metrics, last_activity: DateTime.utc_now()}
+            Map.put(acc, id, updated_conn)
+          rescue
+            _ -> Map.put(acc, id, conn)
+          end
+        else
+          Map.put(acc, id, %{conn | connection_state: :failed})
         end
-      else
-        Map.put(acc, id, %{conn | connection_state: :failed})
-      end
-    end)
+      end)
 
     %{state | connections: updated_connections}
   end
@@ -664,6 +689,7 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
     if quality_data[:score] && quality_data[:score] < 5.0 do
       emit_event(state, :quality_degraded, quality_data)
     end
+
     {:noreply, state}
   end
 
@@ -691,17 +717,19 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
     active_connections = map_size(state.connections)
     active_rooms = map_size(state.rooms)
 
-    avg_connections_per_room = if active_rooms > 0 do
-      active_connections / active_rooms
-    else
-      0.0
-    end
+    avg_connections_per_room =
+      if active_rooms > 0 do
+        active_connections / active_rooms
+      else
+        0.0
+      end
 
-    %{state.metrics |
-      active_connections: active_connections,
-      active_rooms: active_rooms,
-      average_connections_per_room: avg_connections_per_room,
-      uptime_seconds: DateTime.diff(DateTime.utc_now(), state.metrics.uptime_started, :second)
+    %{
+      state.metrics
+      | active_connections: active_connections,
+        active_rooms: active_rooms,
+        average_connections_per_room: avg_connections_per_room,
+        uptime_seconds: DateTime.diff(DateTime.utc_now(), state.metrics.uptime_started, :second)
     }
   end
 
@@ -715,7 +743,9 @@ defmodule LivekitexAgent.Realtime.ConnectionManager do
 
   defp emit_event(state, event_type, data) do
     case Map.get(state.event_callbacks, event_type) do
-      nil -> :ok
+      nil ->
+        :ok
+
       callback when is_function(callback, 2) ->
         try do
           callback.(event_type, data)

@@ -43,11 +43,11 @@ defmodule LivekitexAgent.Utils.Validation do
   @type validation_schema :: %{atom() => [validation_rule()]}
   @type validation_result :: :ok | {:error, [validation_error()]}
   @type validation_error :: %{
-    field: atom() | [atom()],
-    rule: atom(),
-    message: String.t(),
-    value: any()
-  }
+          field: atom() | [atom()],
+          rule: atom(),
+          message: String.t(),
+          value: any()
+        }
 
   ## Schema Validation
 
@@ -69,10 +69,11 @@ defmodule LivekitexAgent.Utils.Validation do
       # => {:error, [%{field: :name, rule: :min_length, message: "...", value: ""}]}
   """
   def validate_schema(data, schema) when is_map(data) and is_map(schema) do
-    errors = Enum.flat_map(schema, fn {field, rules} ->
-      value = Map.get(data, field)
-      validate_field(field, value, rules)
-    end)
+    errors =
+      Enum.flat_map(schema, fn {field, rules} ->
+        value = Map.get(data, field)
+        validate_field(field, value, rules)
+      end)
 
     case errors do
       [] -> :ok
@@ -158,7 +159,9 @@ defmodule LivekitexAgent.Utils.Validation do
 
   def validate_atom(value, opts) when is_atom(value) do
     case Keyword.get(opts, :one_of) do
-      nil -> :ok
+      nil ->
+        :ok
+
       allowed when is_list(allowed) ->
         if value in allowed do
           :ok
@@ -230,6 +233,7 @@ defmodule LivekitexAgent.Utils.Validation do
     case URI.parse(value) do
       %URI{scheme: scheme, host: host} when scheme in ["http", "https"] and is_binary(host) ->
         :ok
+
       _ ->
         {:error, "Invalid URL format"}
     end
@@ -281,11 +285,21 @@ defmodule LivekitexAgent.Utils.Validation do
   """
   def validate_provider_config(provider_type, config) do
     case provider_type do
-      :openai_llm -> validate_openai_llm_config(config)
-      :openai_stt -> validate_openai_stt_config(config)
-      :openai_tts -> validate_openai_tts_config(config)
-      :webrtc_vad -> validate_webrtc_vad_config(config)
-      _ -> {:error, [validation_error(:provider_type, :unknown, "Unknown provider type", provider_type)]}
+      :openai_llm ->
+        validate_openai_llm_config(config)
+
+      :openai_stt ->
+        validate_openai_stt_config(config)
+
+      :openai_tts ->
+        validate_openai_tts_config(config)
+
+      :webrtc_vad ->
+        validate_webrtc_vad_config(config)
+
+      _ ->
+        {:error,
+         [validation_error(:provider_type, :unknown, "Unknown provider type", provider_type)]}
     end
   end
 
@@ -309,12 +323,16 @@ defmodule LivekitexAgent.Utils.Validation do
   def validate_tool_params(tool_name, params, schema) do
     # Tool-specific validation based on the tool's parameter schema
     case validate_schema(params, schema) do
-      :ok -> :ok
+      :ok ->
+        :ok
+
       {:error, errors} ->
         # Add tool context to errors
-        tool_errors = Enum.map(errors, fn error ->
-          %{error | field: [:tool, tool_name, error.field]}
-        end)
+        tool_errors =
+          Enum.map(errors, fn error ->
+            %{error | field: [:tool, tool_name, error.field]}
+          end)
+
         {:error, tool_errors}
     end
   end
@@ -479,7 +497,9 @@ defmodule LivekitexAgent.Utils.Validation do
 
   defp check_string_pattern(value, opts) do
     case Keyword.get(opts, :pattern) do
-      nil -> :ok
+      nil ->
+        :ok
+
       pattern when is_struct(pattern, Regex) ->
         if Regex.match?(pattern, value) do
           :ok
@@ -602,7 +622,8 @@ defmodule LivekitexAgent.Utils.Validation do
     # TODO: Implement key validation if needed
     case Keyword.get(opts, :required_keys) do
       nil -> :ok
-      _keys -> :ok  # Simplified for now
+      # Simplified for now
+      _keys -> :ok
     end
   end
 

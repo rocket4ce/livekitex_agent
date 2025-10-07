@@ -26,10 +26,12 @@ defmodule LivekitexAgent.Providers.Provider do
 
   @type provider_type :: :llm | :stt | :tts | :vad
 
-  @type config :: %{
-    provider: atom(),
-    type: provider_type()
-  } | map()
+  @type config ::
+          %{
+            provider: atom(),
+            type: provider_type()
+          }
+          | map()
 
   @type init_result :: {:ok, state :: any()} | {:error, reason :: any()}
 
@@ -38,11 +40,11 @@ defmodule LivekitexAgent.Providers.Provider do
   @type health_status :: :healthy | :degraded | :unhealthy
 
   @type health_check_result :: %{
-    status: health_status(),
-    latency_ms: non_neg_integer() | nil,
-    last_check: DateTime.t(),
-    error: String.t() | nil
-  }
+          status: health_status(),
+          latency_ms: non_neg_integer() | nil,
+          last_check: DateTime.t(),
+          error: String.t() | nil
+        }
 
   @doc """
   Validates provider configuration.

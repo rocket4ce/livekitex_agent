@@ -180,11 +180,11 @@ defmodule LivekitexAgent.ExampleTools do
   def convert_temperature(temp, unit) when unit in ["C", "F", "celsius", "fahrenheit"] do
     case String.downcase(unit) do
       unit when unit in ["c", "celsius"] ->
-        fahrenheit = temp * 9/5 + 32
+        fahrenheit = temp * 9 / 5 + 32
         "#{temp}°C = #{Float.round(fahrenheit, 2)}°F"
 
       unit when unit in ["f", "fahrenheit"] ->
-        celsius = (temp - 32) * 5/9
+        celsius = (temp - 32) * 5 / 9
         "#{temp}°F = #{Float.round(celsius, 2)}°C"
     end
   end
@@ -196,30 +196,32 @@ defmodule LivekitexAgent.ExampleTools do
   @tool "Calculate compound interest for investments"
   @spec compound_interest(number(), number(), number(), integer()) :: String.t()
   def compound_interest(principal, rate, time, compounds_per_year \\ 1)
-      when is_number(principal) and is_number(rate) and is_number(time) and is_integer(compounds_per_year) do
-
+      when is_number(principal) and is_number(rate) and is_number(time) and
+             is_integer(compounds_per_year) do
     # A = P(1 + r/n)^(nt)
-    amount = principal * :math.pow(1 + rate / (100 * compounds_per_year), compounds_per_year * time)
+    amount =
+      principal * :math.pow(1 + rate / (100 * compounds_per_year), compounds_per_year * time)
+
     interest = amount - principal
 
     "Principal: $#{Float.round(principal, 2)}, " <>
-    "Rate: #{rate}%, Time: #{time} years, " <>
-    "Final Amount: $#{Float.round(amount, 2)}, " <>
-    "Interest Earned: $#{Float.round(interest, 2)}"
+      "Rate: #{rate}%, Time: #{time} years, " <>
+      "Final Amount: $#{Float.round(amount, 2)}, " <>
+      "Interest Earned: $#{Float.round(interest, 2)}"
   end
 
   @tool "Generate secure password with customizable options"
   @spec generate_password(integer(), String.t()) :: String.t()
   def generate_password(length \\ 12, options \\ "all")
       when is_integer(length) and length > 0 and length <= 100 do
-
-    chars = case String.downcase(options) do
-      "numbers" -> "0123456789"
-      "letters" -> "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "symbols" -> "!@#$%^&*()_+-=[]{}|;:,.<>?"
-      "simple" -> "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-      _ -> "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-="
-    end
+    chars =
+      case String.downcase(options) do
+        "numbers" -> "0123456789"
+        "letters" -> "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "symbols" -> "!@#$%^&*()_+-=[]{}|;:,.<>?"
+        "simple" -> "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        _ -> "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-="
+      end
 
     password =
       1..length
@@ -246,21 +248,24 @@ defmodule LivekitexAgent.ExampleTools do
   @spec calculate_bmi(number(), number(), String.t()) :: String.t()
   def calculate_bmi(weight, height, unit \\ "metric")
       when is_number(weight) and is_number(height) do
-
     # Convert to metric if needed
-    {weight_kg, height_m} = case String.downcase(unit) do
-      "imperial" -> {weight * 0.453592, height * 0.0254}  # lbs to kg, inches to meters
-      _ -> {weight, height / 100}  # assume kg and cm
-    end
+    {weight_kg, height_m} =
+      case String.downcase(unit) do
+        # lbs to kg, inches to meters
+        "imperial" -> {weight * 0.453592, height * 0.0254}
+        # assume kg and cm
+        _ -> {weight, height / 100}
+      end
 
     bmi = weight_kg / (height_m * height_m)
 
-    category = cond do
-      bmi < 18.5 -> "Underweight"
-      bmi < 25 -> "Normal weight"
-      bmi < 30 -> "Overweight"
-      true -> "Obese"
-    end
+    category =
+      cond do
+        bmi < 18.5 -> "Underweight"
+        bmi < 25 -> "Normal weight"
+        bmi < 30 -> "Overweight"
+        true -> "Obese"
+      end
 
     "BMI: #{Float.round(bmi, 1)} (#{category})"
   end
@@ -274,7 +279,11 @@ defmodule LivekitexAgent.ExampleTools do
         "🔊 [INTERRUPTING] #{message}"
 
       {:error, reason} ->
-        LivekitexAgent.RunContext.log_warning(context, "Failed to interrupt speech: #{inspect(reason)}")
+        LivekitexAgent.RunContext.log_warning(
+          context,
+          "Failed to interrupt speech: #{inspect(reason)}"
+        )
+
         "📢 #{message}"
     end
   end

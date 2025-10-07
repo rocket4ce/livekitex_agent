@@ -20,7 +20,8 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
   @default_model "whisper-1"
   @api_base_url "https://api.openai.com/v1"
   @supported_formats [:pcm16, :wav, :mp3, :m4a, :webm]
-  @max_file_size 25 * 1024 * 1024  # 25MB OpenAI limit
+  # 25MB OpenAI limit
+  @max_file_size 25 * 1024 * 1024
 
   defstruct [
     :api_key,
@@ -149,7 +150,8 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
   def handle_cast({:process_audio, audio_data}, state) do
     # Add to buffer
     updated_buffer = state.audio_buffer <> audio_data
-    buffer_size_seconds = byte_size(updated_buffer) / (state.sample_rate * 2)  # PCM16 = 2 bytes per sample
+    # PCM16 = 2 bytes per sample
+    buffer_size_seconds = byte_size(updated_buffer) / (state.sample_rate * 2)
 
     state = %{state | audio_buffer: updated_buffer}
 
@@ -213,6 +215,7 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
       buffer_duration: state.buffer_duration,
       processing: state.processing_task != nil
     }
+
     {:reply, state_info, state}
   end
 
@@ -249,9 +252,11 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     if byte_size(audio_data) == 0 do
       {:error, :empty_audio}
     else
-      task = Task.async(fn ->
-        perform_transcription(state, audio_data)
-      end)
+      task =
+        Task.async(fn ->
+          perform_transcription(state, audio_data)
+        end)
+
       {:ok, task}
     end
   end
@@ -278,13 +283,16 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     end
   end
 
-  defp prepare_audio_for_api(audio_data, format, _sample_rate) when format in [:wav, :mp3, :m4a] do
+  defp prepare_audio_for_api(audio_data, format, _sample_rate)
+       when format in [:wav, :mp3, :m4a] do
     # Audio is already in a supported format
-    content_type = case format do
-      :wav -> "audio/wav"
-      :mp3 -> "audio/mpeg"
-      :m4a -> "audio/mp4"
-    end
+    content_type =
+      case format do
+        :wav -> "audio/wav"
+        :mp3 -> "audio/mpeg"
+        :m4a -> "audio/mp4"
+      end
+
     {:ok, audio_data, content_type}
   end
 
@@ -306,8 +314,10 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
 
       # fmt chunk
       "fmt "::binary,
-      16::little-32,  # fmt chunk size
-      1::little-16,    # PCM format
+      # fmt chunk size
+      16::little-32,
+      # PCM format
+      1::little-16,
       channels::little-16,
       sample_rate::little-32,
       byte_rate::little-32,
@@ -342,7 +352,9 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
         {"Content-Type", "multipart/form-data; boundary=#{boundary}"} | headers
       ]
 
-      case state.http_client.post(url, form_data, multipart_headers, timeout: state.request_timeout) do
+      case state.http_client.post(url, form_data, multipart_headers,
+             timeout: state.request_timeout
+           ) do
         {:ok, %HTTPoison.Response{status_code: 200, body: response_body}} ->
           parse_transcription_response(response_body, state.response_format)
 
@@ -367,6 +379,7 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     Content-Type: #{content_type}\r
     \r
     """
+
     parts = [file_part, audio_data, "\r\n" | parts]
 
     # Add model
@@ -376,20 +389,23 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     \r
     #{state.model}\r
     """
+
     parts = [model_part | parts]
 
     # Add language if specified
-    parts = if state.language do
-      language_part = """
-      --#{boundary}\r
-      Content-Disposition: form-data; name="language"\r
-      \r
-      #{state.language}\r
-      """
-      [language_part | parts]
-    else
-      parts
-    end
+    parts =
+      if state.language do
+        language_part = """
+        --#{boundary}\r
+        Content-Disposition: form-data; name="language"\r
+        \r
+        #{state.language}\r
+        """
+
+        [language_part | parts]
+      else
+        parts
+      end
 
     # Add response format
     response_format_part = """
@@ -398,6 +414,7 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     \r
     #{state.response_format}\r
     """
+
     parts = [response_format_part | parts]
 
     # Add temperature
@@ -407,6 +424,7 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     \r
     #{state.temperature}\r
     """
+
     parts = [temperature_part | parts]
 
     # Add closing boundary
@@ -426,7 +444,8 @@ defmodule LivekitexAgent.Providers.OpenAI.STT do
     {:ok, String.trim(response_body)}
   end
 
-  defp parse_transcription_response(response_body, format) when format in ["json", "verbose_json"] do
+  defp parse_transcription_response(response_body, format)
+       when format in ["json", "verbose_json"] do
     case Jason.decode(response_body) do
       {:ok, %{"text" => text}} ->
         {:ok, text}

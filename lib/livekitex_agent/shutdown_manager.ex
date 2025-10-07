@@ -80,7 +80,9 @@ defmodule LivekitexAgent.ShutdownManager do
   """
   def shutdown_in_progress? do
     case Process.whereis(__MODULE__) do
-      nil -> false
+      nil ->
+        false
+
       _pid ->
         try do
           status = get_shutdown_status()
@@ -121,13 +123,14 @@ defmodule LivekitexAgent.ShutdownManager do
       reason = Keyword.get(opts, :reason, :normal)
       callback = Keyword.get(opts, :callback)
 
-      new_state = %{state |
-        shutdown_initiated: true,
-        shutdown_start_time: System.monotonic_time(:millisecond),
-        timeout: timeout,
-        phase: :draining,
-        shutdown_reason: reason,
-        completion_callback: callback
+      new_state = %{
+        state
+        | shutdown_initiated: true,
+          shutdown_start_time: System.monotonic_time(:millisecond),
+          timeout: timeout,
+          phase: :draining,
+          shutdown_reason: reason,
+          completion_callback: callback
       }
 
       Logger.info("Graceful shutdown initiated: reason=#{reason}, timeout=#{timeout}ms")
@@ -143,11 +146,12 @@ defmodule LivekitexAgent.ShutdownManager do
   def handle_call(:force_shutdown, _from, state) do
     Logger.warning("Force shutdown requested")
 
-    new_state = %{state |
-      shutdown_initiated: true,
-      shutdown_start_time: System.monotonic_time(:millisecond),
-      phase: :forcing,
-      shutdown_reason: :forced
+    new_state = %{
+      state
+      | shutdown_initiated: true,
+        shutdown_start_time: System.monotonic_time(:millisecond),
+        phase: :forcing,
+        shutdown_reason: :forced
     }
 
     send(self(), :begin_force_phase)
@@ -156,11 +160,12 @@ defmodule LivekitexAgent.ShutdownManager do
 
   @impl true
   def handle_call(:get_shutdown_status, _from, state) do
-    elapsed_time = if state.shutdown_start_time do
-      System.monotonic_time(:millisecond) - state.shutdown_start_time
-    else
-      0
-    end
+    elapsed_time =
+      if state.shutdown_start_time do
+        System.monotonic_time(:millisecond) - state.shutdown_start_time
+      else
+        0
+      end
 
     status = %{
       shutdown_initiated: state.shutdown_initiated,
@@ -193,10 +198,7 @@ defmodule LivekitexAgent.ShutdownManager do
     # Start grace period timer
     Process.send_after(self(), :check_completion, 1000)
 
-    new_state = %{state |
-      active_jobs_snapshot: active_jobs,
-      phase: :waiting
-    }
+    new_state = %{state | active_jobs_snapshot: active_jobs, phase: :waiting}
 
     {:noreply, new_state}
   end
@@ -213,7 +215,10 @@ defmodule LivekitexAgent.ShutdownManager do
         {:noreply, %{state | phase: :cleanup}}
 
       elapsed >= state.timeout ->
-        Logger.warning("Shutdown timeout reached, forcing termination of #{active_jobs} remaining jobs")
+        Logger.warning(
+          "Shutdown timeout reached, forcing termination of #{active_jobs} remaining jobs"
+        )
+
         send(self(), :begin_force_phase)
         {:noreply, %{state | phase: :forcing}}
 
@@ -270,6 +275,7 @@ defmodule LivekitexAgent.ShutdownManager do
     if not state.shutdown_initiated do
       Logger.info("Shutdown manager terminating: #{inspect(reason)}")
     end
+
     :ok
   end
 
@@ -277,7 +283,9 @@ defmodule LivekitexAgent.ShutdownManager do
 
   defp get_current_active_jobs do
     case Process.whereis(LivekitexAgent.WorkerManager) do
-      nil -> 0
+      nil ->
+        0
+
       _pid ->
         try do
           status = LivekitexAgent.WorkerManager.get_status()
@@ -295,7 +303,9 @@ defmodule LivekitexAgent.ShutdownManager do
 
     # Signal worker manager
     case Process.whereis(LivekitexAgent.WorkerManager) do
-      nil -> :ok
+      nil ->
+        :ok
+
       _pid ->
         try do
           # WorkerManager already has graceful_shutdown functionality
@@ -308,7 +318,9 @@ defmodule LivekitexAgent.ShutdownManager do
 
     # Signal health server to indicate shutdown in progress
     case Process.whereis(LivekitexAgent.HealthServer) do
-      nil -> :ok
+      nil ->
+        :ok
+
       _pid ->
         try do
           # Health server should report unhealthy during shutdown
@@ -324,7 +336,9 @@ defmodule LivekitexAgent.ShutdownManager do
     Logger.warning("Force terminating remaining active jobs")
 
     case Process.whereis(LivekitexAgent.WorkerManager) do
-      nil -> :ok
+      nil ->
+        :ok
+
       _pid ->
         try do
           GenServer.cast(LivekitexAgent.WorkerManager, :force_terminate_jobs)
@@ -339,7 +353,9 @@ defmodule LivekitexAgent.ShutdownManager do
     Logger.info("Exporting final metrics before shutdown")
 
     case Process.whereis(LivekitexAgent.Telemetry.Metrics) do
-      nil -> :ok
+      nil ->
+        :ok
+
       _pid ->
         try do
           LivekitexAgent.Telemetry.Metrics.export_metrics()
@@ -360,7 +376,9 @@ defmodule LivekitexAgent.ShutdownManager do
 
     # Close HTTP server connections
     case Process.whereis(LivekitexAgent.HealthServer) do
-      nil -> :ok
+      nil ->
+        :ok
+
       _pid ->
         # Health server will handle its own connection cleanup
         :ok

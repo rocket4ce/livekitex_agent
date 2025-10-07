@@ -134,11 +134,13 @@ defmodule LivekitexAgent.Providers.OpenAI.TTS do
 
     # Validate options
     unless voice in @available_voices do
-      raise ArgumentError, "Invalid voice: #{voice}. Must be one of: #{Enum.join(@available_voices, ", ")}"
+      raise ArgumentError,
+            "Invalid voice: #{voice}. Must be one of: #{Enum.join(@available_voices, ", ")}"
     end
 
     unless format in @available_formats do
-      raise ArgumentError, "Invalid format: #{format}. Must be one of: #{Enum.join(@available_formats, ", ")}"
+      raise ArgumentError,
+            "Invalid format: #{format}. Must be one of: #{Enum.join(@available_formats, ", ")}"
     end
 
     unless speed >= 0.25 and speed <= 4.0 do
@@ -165,7 +167,9 @@ defmodule LivekitexAgent.Providers.OpenAI.TTS do
 
   @impl true
   def handle_cast({:synthesize, text}, state) do
-    Logger.debug("Synthesizing text: #{String.slice(text, 0, 100)}#{if String.length(text) > 100, do: "...", else: ""}")
+    Logger.debug(
+      "Synthesizing text: #{String.slice(text, 0, 100)}#{if String.length(text) > 100, do: "...", else: ""}"
+    )
 
     # Cancel any existing task
     state = maybe_cancel_task(state)
@@ -217,6 +221,7 @@ defmodule LivekitexAgent.Providers.OpenAI.TTS do
       sample_rate: state.sample_rate,
       processing: state.processing_task != nil
     }
+
     {:reply, state_info, state}
   end
 
@@ -270,9 +275,11 @@ defmodule LivekitexAgent.Providers.OpenAI.TTS do
     if String.trim(text) == "" do
       {:error, :empty_text}
     else
-      task = Task.async(fn ->
-        make_tts_request(state, text)
-      end)
+      task =
+        Task.async(fn ->
+          make_tts_request(state, text)
+        end)
+
       {:ok, task}
     end
   end

@@ -1,5 +1,5 @@
 defmodule LivekitexAgent.Media.AudioProcessor do
-    @doc """
+  @doc """
   Enhanced audio processing pipeline for real-time voice agent interactions.
 
   This module provides:
@@ -60,38 +60,38 @@ defmodule LivekitexAgent.Media.AudioProcessor do
   ]
 
   @type audio_format :: %{
-    sample_rate: pos_integer(),
-    channels: pos_integer(),
-    bit_depth: pos_integer(),
-    format: :pcm16 | :pcm24 | :float32
-  }
+          sample_rate: pos_integer(),
+          channels: pos_integer(),
+          bit_depth: pos_integer(),
+          format: :pcm16 | :pcm24 | :float32
+        }
 
   @type audio_chunk :: %{
-    data: binary(),
-    format: audio_format(),
-    timestamp: DateTime.t(),
-    sequence: non_neg_integer()
-  }
+          data: binary(),
+          format: audio_format(),
+          timestamp: DateTime.t(),
+          sequence: non_neg_integer()
+        }
 
   @type processor_config :: %{
-    sample_rate: pos_integer(),
-    channels: pos_integer(),
-    chunk_duration_ms: pos_integer(),
-    buffer_size_ms: pos_integer(),
-    enable_processing: boolean()
-  }
+          sample_rate: pos_integer(),
+          channels: pos_integer(),
+          chunk_duration_ms: pos_integer(),
+          buffer_size_ms: pos_integer(),
+          enable_processing: boolean()
+        }
 
   @type t :: %__MODULE__{
-    sample_rate: pos_integer(),
-    channels: pos_integer(),
-    chunk_duration_ms: pos_integer(),
-    buffer_size_ms: pos_integer(),
-    input_buffer: :queue.queue(),
-    output_buffer: :queue.queue(),
-    metrics: map(),
-    callbacks: map(),
-    processing_enabled: boolean()
-  }
+          sample_rate: pos_integer(),
+          channels: pos_integer(),
+          chunk_duration_ms: pos_integer(),
+          buffer_size_ms: pos_integer(),
+          input_buffer: :queue.queue(),
+          output_buffer: :queue.queue(),
+          metrics: map(),
+          callbacks: map(),
+          processing_enabled: boolean()
+        }
 
   ## Client API
 
@@ -246,30 +246,34 @@ defmodule LivekitexAgent.Media.AudioProcessor do
       {input_buffer, overflow_count} = manage_buffer_overflow(new_input_buffer, state)
 
       # Process audio if enabled
-      {output_buffer, processed_count} = if state.processing_enabled do
-        process_buffered_audio(input_buffer, state.output_buffer, state)
-      else
-        {state.output_buffer, 0}
-      end
+      {output_buffer, processed_count} =
+        if state.processing_enabled do
+          process_buffered_audio(input_buffer, state.output_buffer, state)
+        else
+          {state.output_buffer, 0}
+        end
 
       # Update metrics
       processing_time = System.monotonic_time(:microsecond) - start_time
-      new_metrics = update_processing_metrics(state.metrics, processing_time, processed_count, overflow_count)
 
-      new_state = %{state |
-        input_buffer: input_buffer,
-        output_buffer: output_buffer,
-        metrics: new_metrics
+      new_metrics =
+        update_processing_metrics(state.metrics, processing_time, processed_count, overflow_count)
+
+      new_state = %{
+        state
+        | input_buffer: input_buffer,
+          output_buffer: output_buffer,
+          metrics: new_metrics
       }
 
       # Trigger callbacks
       trigger_callback(new_state, :chunk_processed, processed_chunk)
+
       if overflow_count > 0 do
         trigger_callback(new_state, :buffer_overflow, overflow_count)
       end
 
       {:noreply, new_state}
-
     rescue
       e ->
         Logger.error("Audio processing error: #{inspect(e)}")
@@ -322,21 +326,19 @@ defmodule LivekitexAgent.Media.AudioProcessor do
 
   @impl true
   def handle_call(:clear_buffers, _from, state) do
-    new_state = %{state |
-      input_buffer: :queue.new(),
-      output_buffer: :queue.new()
-    }
+    new_state = %{state | input_buffer: :queue.new(), output_buffer: :queue.new()}
     {:reply, :ok, new_state}
   end
 
   @impl true
   def handle_call({:update_config, new_config}, _from, state) do
-    new_state = %{state |
-      sample_rate: Map.get(new_config, :sample_rate, state.sample_rate),
-      channels: Map.get(new_config, :channels, state.channels),
-      chunk_duration_ms: Map.get(new_config, :chunk_duration_ms, state.chunk_duration_ms),
-      buffer_size_ms: Map.get(new_config, :buffer_size_ms, state.buffer_size_ms),
-      processing_enabled: Map.get(new_config, :enable_processing, state.processing_enabled)
+    new_state = %{
+      state
+      | sample_rate: Map.get(new_config, :sample_rate, state.sample_rate),
+        channels: Map.get(new_config, :channels, state.channels),
+        chunk_duration_ms: Map.get(new_config, :chunk_duration_ms, state.chunk_duration_ms),
+        buffer_size_ms: Map.get(new_config, :buffer_size_ms, state.buffer_size_ms),
+        processing_enabled: Map.get(new_config, :enable_processing, state.processing_enabled)
     }
 
     Logger.info("AudioProcessor config updated")
@@ -371,14 +373,10 @@ defmodule LivekitexAgent.Media.AudioProcessor do
       processing_time = System.monotonic_time(:microsecond) - start_time
       new_metrics = update_pcm16_metrics(state.metrics, processing_time, byte_size(pcm16_data))
 
-      new_state = %{state |
-        output_buffer: new_output_buffer,
-        metrics: new_metrics
-      }
+      new_state = %{state | output_buffer: new_output_buffer, metrics: new_metrics}
 
       trigger_callback(new_state, :pcm16_processed, processed_chunk)
       {:noreply, new_state}
-
     rescue
       e ->
         Logger.error("PCM16 processing error: #{inspect(e)}")
@@ -462,16 +460,14 @@ defmodule LivekitexAgent.Media.AudioProcessor do
     if audio_chunk.format == target_format do
       audio_chunk
     else
-      converted_data = perform_format_conversion(
-        audio_chunk.data,
-        audio_chunk.format,
-        target_format
-      )
+      converted_data =
+        perform_format_conversion(
+          audio_chunk.data,
+          audio_chunk.format,
+          target_format
+        )
 
-      %{audio_chunk |
-        data: converted_data,
-        format: target_format
-      }
+      %{audio_chunk | data: converted_data, format: target_format}
     end
   end
 
@@ -584,12 +580,13 @@ defmodule LivekitexAgent.Media.AudioProcessor do
     new_processed = metrics.chunks_processed + processed_count
     new_average = if new_processed > 0, do: new_total_time / new_processed, else: 0.0
 
-    %{metrics |
-      chunks_processed: new_processed,
-      total_processing_time_us: new_total_time,
-      average_processing_time_us: new_average,
-      buffer_overflows: metrics.buffer_overflows + overflow_count,
-      last_activity: DateTime.utc_now()
+    %{
+      metrics
+      | chunks_processed: new_processed,
+        total_processing_time_us: new_total_time,
+        average_processing_time_us: new_average,
+        buffer_overflows: metrics.buffer_overflows + overflow_count,
+        last_activity: DateTime.utc_now()
     }
   end
 
@@ -600,14 +597,18 @@ defmodule LivekitexAgent.Media.AudioProcessor do
 
   defp trigger_callback(state, event, data) do
     case Map.get(state.callbacks, event) do
-      nil -> :ok
+      nil ->
+        :ok
+
       callback when is_function(callback, 2) ->
         try do
           callback.(event, data)
         rescue
           e -> Logger.error("Error in audio processor callback: #{inspect(e)}")
         end
-      _ -> Logger.warning("Invalid callback for event: #{event}")
+
+      _ ->
+        Logger.warning("Invalid callback for event: #{event}")
     end
   end
 
@@ -617,9 +618,10 @@ defmodule LivekitexAgent.Media.AudioProcessor do
     # Apply PCM16-specific optimizations
     enhanced_data = normalize_pcm16_audio(audio_chunk.data)
 
-    %{audio_chunk |
-      data: enhanced_data,
-      metadata: Map.put(audio_chunk[:metadata] || %{}, :optimized, true)
+    %{
+      audio_chunk
+      | data: enhanced_data,
+        metadata: Map.put(audio_chunk[:metadata] || %{}, :optimized, true)
     }
   end
 
@@ -633,13 +635,15 @@ defmodule LivekitexAgent.Media.AudioProcessor do
 
     if max_amplitude > 0 do
       # Normalize to prevent clipping while maintaining dynamic range
-      target_max = 32767 * 0.9  # Leave 10% headroom
+      # Leave 10% headroom
+      target_max = 32767 * 0.9
       scale_factor = target_max / max_amplitude
 
-      normalized_samples = Enum.map(samples, fn sample ->
-        normalized = round(sample * scale_factor)
-        max(-32768, min(32767, normalized))
-      end)
+      normalized_samples =
+        Enum.map(samples, fn sample ->
+          normalized = round(sample * scale_factor)
+          max(-32768, min(32767, normalized))
+        end)
 
       # Convert back to binary
       for sample <- normalized_samples, into: <<>>, do: <<sample::little-signed-16>>
@@ -665,12 +669,13 @@ defmodule LivekitexAgent.Media.AudioProcessor do
         sample_count = div(byte_count, 2)
         duration_ms = sample_count / @default_sample_rate * 1000
 
-        {:ok, %{
-          byte_size: byte_count,
-          sample_count: sample_count,
-          duration_ms: duration_ms,
-          format: :pcm16
-        }}
+        {:ok,
+         %{
+           byte_size: byte_count,
+           sample_count: sample_count,
+           duration_ms: duration_ms,
+           format: :pcm16
+         }}
     end
   end
 
@@ -685,23 +690,24 @@ defmodule LivekitexAgent.Media.AudioProcessor do
     ratio = to_rate / from_rate
     output_length = round(length(samples) * ratio)
 
-    resampled = for i <- 0..(output_length - 1) do
-      source_index = i / ratio
+    resampled =
+      for i <- 0..(output_length - 1) do
+        source_index = i / ratio
 
-      # Linear interpolation between adjacent samples
-      index_floor = floor(source_index)
-      index_ceil = min(index_floor + 1, length(samples) - 1)
+        # Linear interpolation between adjacent samples
+        index_floor = floor(source_index)
+        index_ceil = min(index_floor + 1, length(samples) - 1)
 
-      if index_floor == index_ceil do
-        Enum.at(samples, round(index_floor))
-      else
-        sample_a = Enum.at(samples, round(index_floor))
-        sample_b = Enum.at(samples, round(index_ceil))
-        fraction = source_index - index_floor
+        if index_floor == index_ceil do
+          Enum.at(samples, round(index_floor))
+        else
+          sample_a = Enum.at(samples, round(index_floor))
+          sample_b = Enum.at(samples, round(index_ceil))
+          fraction = source_index - index_floor
 
-        round(sample_a * (1 - fraction) + sample_b * fraction)
+          round(sample_a * (1 - fraction) + sample_b * fraction)
+        end
       end
-    end
 
     for sample <- resampled, into: <<>>, do: <<sample::little-signed-16>>
   end
@@ -713,44 +719,52 @@ defmodule LivekitexAgent.Media.AudioProcessor do
   end
 
   defp maybe_apply_noise_reduction(pcm16_data, nil), do: pcm16_data
+
   defp maybe_apply_noise_reduction(pcm16_data, _options) do
     # Basic noise gate implementation
     samples = for <<sample::little-signed-16 <- pcm16_data>>, do: sample
-    threshold = 1000  # Noise gate threshold
+    # Noise gate threshold
+    threshold = 1000
 
-    processed = Enum.map(samples, fn sample ->
-      if abs(sample) < threshold, do: 0, else: sample
-    end)
+    processed =
+      Enum.map(samples, fn sample ->
+        if abs(sample) < threshold, do: 0, else: sample
+      end)
 
     for sample <- processed, into: <<>>, do: <<sample::little-signed-16>>
   end
 
   defp maybe_apply_gain_control(pcm16_data, nil), do: pcm16_data
+
   defp maybe_apply_gain_control(pcm16_data, options) do
     gain = Map.get(options, :gain, 1.0)
     samples = for <<sample::little-signed-16 <- pcm16_data>>, do: sample
 
-    processed = Enum.map(samples, fn sample ->
-      boosted = round(sample * gain)
-      max(-32768, min(32767, boosted))
-    end)
+    processed =
+      Enum.map(samples, fn sample ->
+        boosted = round(sample * gain)
+        max(-32768, min(32767, boosted))
+      end)
 
     for sample <- processed, into: <<>>, do: <<sample::little-signed-16>>
   end
 
   defp update_pcm16_metrics(metrics, processing_time, data_size) do
-    %{metrics |
-      chunks_processed: metrics.chunks_processed + 1,
-      total_processing_time_us: metrics.total_processing_time_us + processing_time,
-      average_processing_time_us: (metrics.total_processing_time_us + processing_time) / (metrics.chunks_processed + 1),
-      last_activity: DateTime.utc_now(),
-      total_data_processed: Map.get(metrics, :total_data_processed, 0) + data_size
+    %{
+      metrics
+      | chunks_processed: metrics.chunks_processed + 1,
+        total_processing_time_us: metrics.total_processing_time_us + processing_time,
+        average_processing_time_us:
+          (metrics.total_processing_time_us + processing_time) / (metrics.chunks_processed + 1),
+        last_activity: DateTime.utc_now(),
+        total_data_processed: Map.get(metrics, :total_data_processed, 0) + data_size
     }
   end
 
   defp calculate_latency_metrics(state) do
     # Calculate various latency metrics
-    avg_processing_time = state.metrics.average_processing_time_us / 1000  # Convert to ms
+    # Convert to ms
+    avg_processing_time = state.metrics.average_processing_time_us / 1000
     buffer_latency = calculate_buffer_latency(state)
 
     %{
@@ -781,16 +795,20 @@ defmodule LivekitexAgent.Media.AudioProcessor do
   defp configure_realtime_optimizations(state, enabled) do
     # Configure optimizations for real-time processing
     if enabled do
-      %{state |
-        chunk_duration_ms: 20,      # Smaller chunks for lower latency
-        buffer_size_ms: 100,        # Smaller buffer for real-time
-        processing_enabled: true
+      %{
+        state
+        | # Smaller chunks for lower latency
+          chunk_duration_ms: 20,
+          # Smaller buffer for real-time
+          buffer_size_ms: 100,
+          processing_enabled: true
       }
     else
-      %{state |
-        chunk_duration_ms: @default_chunk_duration_ms,
-        buffer_size_ms: @default_buffer_size_ms,
-        processing_enabled: state.processing_enabled
+      %{
+        state
+        | chunk_duration_ms: @default_chunk_duration_ms,
+          buffer_size_ms: @default_buffer_size_ms,
+          processing_enabled: state.processing_enabled
       }
     end
   end

@@ -667,13 +667,14 @@ defmodule LivekitexAgent.CLI do
     # Execute tool
     start_time = System.monotonic_time(:millisecond)
 
-    result = LivekitexAgent.FunctionTool.execute_tool_safely(
-      tool_name,
-      parsed_args,
-      context,
-      timeout: Keyword.get(opts, :timeout, 30_000),
-      retry_attempts: Keyword.get(opts, :retry, 0)
-    )
+    result =
+      LivekitexAgent.FunctionTool.execute_tool_safely(
+        tool_name,
+        parsed_args,
+        context,
+        timeout: Keyword.get(opts, :timeout, 30_000),
+        retry_attempts: Keyword.get(opts, :retry, 0)
+      )
 
     duration = System.monotonic_time(:millisecond) - start_time
 
@@ -727,19 +728,23 @@ defmodule LivekitexAgent.CLI do
 
       # Validate schema
       schema_valid = validate_tool_schema(tool.schema)
+
       unless schema_valid do
         raise "Invalid OpenAI schema"
       end
 
       IO.puts("  ✅ #{tool_name}: Valid")
       {:ok, tool_name}
-
     rescue
       error ->
         IO.puts("  ❌ #{tool_name}: #{Exception.message(error)}")
+
         if Keyword.get(opts, :verbose, false) do
-          IO.puts("    #{Exception.format_stacktrace(Exception.format_stacktrace(__STACKTRACE__))}")
+          IO.puts(
+            "    #{Exception.format_stacktrace(Exception.format_stacktrace(__STACKTRACE__))}"
+          )
         end
+
         {:error, tool_name}
     end
   end
@@ -831,16 +836,26 @@ defmodule LivekitexAgent.CLI do
 
   defp parse_argument_value(value) do
     cond do
-      value == "true" -> true
-      value == "false" -> false
-      String.match?(value, ~r/^\d+$/) -> String.to_integer(value)
-      String.match?(value, ~r/^\d+\.\d+$/) -> String.to_float(value)
+      value == "true" ->
+        true
+
+      value == "false" ->
+        false
+
+      String.match?(value, ~r/^\d+$/) ->
+        String.to_integer(value)
+
+      String.match?(value, ~r/^\d+\.\d+$/) ->
+        String.to_float(value)
+
       String.starts_with?(value, "[") or String.starts_with?(value, "{") ->
         case Jason.decode(value) do
           {:ok, parsed} -> parsed
           _ -> value
         end
-      true -> value
+
+      true ->
+        value
     end
   end
 
@@ -1114,6 +1129,7 @@ defmodule LivekitexAgent.CLI do
         IO.puts("✅ Deployment started successfully")
         IO.puts("   Workers: #{config.workers}")
         IO.puts("   Health endpoint: http://#{config.host}:#{config.health_port}/health")
+
         if config.enable_dashboard do
           IO.puts("   Dashboard: http://#{config.host}:#{config.metrics_port}/dashboard")
         end
@@ -1146,7 +1162,8 @@ defmodule LivekitexAgent.CLI do
   defp deploy_restart(opts) do
     IO.puts("🔄 Restarting deployment...")
     deploy_stop(opts)
-    :timer.sleep(2000)  # Brief pause between stop and start
+    # Brief pause between stop and start
+    :timer.sleep(2000)
     deploy_start(opts)
   end
 
@@ -1212,6 +1229,7 @@ defmodule LivekitexAgent.CLI do
   defp cluster_list_nodes(_opts) do
     nodes = [Node.self() | Node.list()]
     IO.puts("📍 Cluster Nodes (#{length(nodes)} total):")
+
     Enum.each(nodes, fn node ->
       status = if node == Node.self(), do: "(current)", else: ""
       IO.puts("   - #{node} #{status}")
@@ -1579,7 +1597,7 @@ defmodule LivekitexAgent.CLI do
 
   defp start_production_cluster(config) do
     # Implementation would start the application with enterprise configuration
-    Application.put_env(:livekitex_agent, :worker_options, [
+    Application.put_env(:livekitex_agent, :worker_options,
       max_workers: config.workers,
       enable_load_balancing: true,
       load_balancer_strategy: String.to_atom(config.load_balancer),
@@ -1587,9 +1605,10 @@ defmodule LivekitexAgent.CLI do
       auto_scale_up_threshold: config.scale_up_threshold,
       auto_scale_down_threshold: config.scale_down_threshold,
       enable_circuit_breaker: config.circuit_breaker
-    ])
+    )
 
-    {:ok, self()}  # Placeholder
+    # Placeholder
+    {:ok, self()}
   end
 
   defp get_worker_manager do
@@ -1683,9 +1702,12 @@ defmodule LivekitexAgent.CLI do
       _pid ->
         # Simplified health check
         checks = %{
-          "worker_manager" => if(Process.whereis(LivekitexAgent.WorkerManager), do: :healthy, else: :unhealthy),
-          "metrics" => if(Process.whereis(LivekitexAgent.Telemetry.Metrics), do: :healthy, else: :unhealthy),
-          "tool_registry" => if(Process.whereis(LivekitexAgent.ToolRegistry), do: :healthy, else: :unhealthy)
+          "worker_manager" =>
+            if(Process.whereis(LivekitexAgent.WorkerManager), do: :healthy, else: :unhealthy),
+          "metrics" =>
+            if(Process.whereis(LivekitexAgent.Telemetry.Metrics), do: :healthy, else: :unhealthy),
+          "tool_registry" =>
+            if(Process.whereis(LivekitexAgent.ToolRegistry), do: :healthy, else: :unhealthy)
         }
 
         {:ok, checks}

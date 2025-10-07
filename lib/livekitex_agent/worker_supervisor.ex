@@ -46,13 +46,13 @@ defmodule LivekitexAgent.WorkerSupervisor do
   ]
 
   @type t :: %__MODULE__{
-    worker_options: map(),
-    max_children: pos_integer(),
-    active_workers: non_neg_integer(),
-    job_queue: :queue.queue(),
-    metrics: map(),
-    shutdown_timeout: pos_integer()
-  }
+          worker_options: map(),
+          max_children: pos_integer(),
+          active_workers: non_neg_integer(),
+          job_queue: :queue.queue(),
+          metrics: map(),
+          shutdown_timeout: pos_integer()
+        }
 
   ## Client API
 
@@ -99,7 +99,9 @@ defmodule LivekitexAgent.WorkerSupervisor do
     workers = list_workers()
 
     TelemetryLogger.info("Shutting down worker supervisor",
-      worker_count: length(workers), timeout: timeout)
+      worker_count: length(workers),
+      timeout: timeout
+    )
 
     # First, stop accepting new work
     :ets.insert(:worker_supervisor_state, {:accepting_work, false})
@@ -151,7 +153,8 @@ defmodule LivekitexAgent.WorkerSupervisor do
 
     TelemetryLogger.info("Worker supervisor initialized",
       agent_name: Map.get(worker_options, :agent_name, "unknown"),
-      max_children: @max_children)
+      max_children: @max_children
+    )
 
     # Configure the dynamic supervisor
     opts = [
@@ -175,12 +178,10 @@ defmodule LivekitexAgent.WorkerSupervisor do
       {LivekitexAgent.ToolRegistry, []},
 
       # Audio processing pipeline
-      {LivekitexAgent.Media.AudioProcessor,
-        Map.get(worker_options, :audio_config, %{})},
+      {LivekitexAgent.Media.AudioProcessor, Map.get(worker_options, :audio_config, %{})},
 
       # Health monitoring
-      {LivekitexAgent.HealthServer,
-        Map.get(worker_options, :health_config, %{})},
+      {LivekitexAgent.HealthServer, Map.get(worker_options, :health_config, %{})},
 
       # Worker coordination
       {LivekitexAgent.WorkerManager, worker_options}
@@ -189,7 +190,8 @@ defmodule LivekitexAgent.WorkerSupervisor do
     # Start static infrastructure supervisor
     Supervisor.start_link(children,
       strategy: :rest_for_one,
-      name: LivekitexAgent.InfrastructureSupervisor)
+      name: LivekitexAgent.InfrastructureSupervisor
+    )
   end
 
   defp init_metrics do
@@ -212,15 +214,19 @@ defmodule LivekitexAgent.WorkerSupervisor do
 
       if elapsed >= timeout do
         TelemetryLogger.warn("Worker shutdown timeout reached",
-          elapsed_ms: elapsed, timeout_ms: timeout)
+          elapsed_ms: elapsed,
+          timeout_ms: timeout
+        )
       else
-        alive_workers = Enum.filter(workers, fn {_id, pid, _type, _modules} ->
-          Process.alive?(pid)
-        end)
+        alive_workers =
+          Enum.filter(workers, fn {_id, pid, _type, _modules} ->
+            Process.alive?(pid)
+          end)
 
         if length(alive_workers) == 0 do
           TelemetryLogger.info("All workers shutdown gracefully",
-            elapsed_ms: elapsed)
+            elapsed_ms: elapsed
+          )
         else
           Process.sleep(100)
           wait_loop.(wait_loop)
@@ -289,8 +295,7 @@ defmodule LivekitexAgent.Worker do
       shutdown_requested: false
     }
 
-    TelemetryLogger.info("Worker started",
-      worker_pid: self(), job_spec: job_spec)
+    TelemetryLogger.info("Worker started", worker_pid: self(), job_spec: job_spec)
 
     {:ok, state}
   end
@@ -309,8 +314,7 @@ defmodule LivekitexAgent.Worker do
         new_metrics = update_job_metrics(state.metrics, :success, duration)
         new_state = %{state | metrics: new_metrics, current_job: nil}
 
-        TelemetryLogger.info("Job completed",
-          job_id: Map.get(job, :id), duration_ms: duration)
+        TelemetryLogger.info("Job completed", job_id: Map.get(job, :id), duration_ms: duration)
 
         {:reply, result, new_state}
       rescue
@@ -320,7 +324,9 @@ defmodule LivekitexAgent.Worker do
           new_state = %{state | metrics: new_metrics, current_job: nil}
 
           TelemetryLogger.log_error(e, "Job execution failed",
-            job_id: Map.get(job, :id), duration_ms: duration)
+            job_id: Map.get(job, :id),
+            duration_ms: duration
+          )
 
           {:reply, {:error, e.message}, new_state}
       end
@@ -363,7 +369,8 @@ defmodule LivekitexAgent.Worker do
       worker_pid: self(),
       reason: reason,
       uptime_seconds: uptime,
-      jobs_completed: state.metrics.jobs_completed)
+      jobs_completed: state.metrics.jobs_completed
+    )
 
     :ok
   end
@@ -378,10 +385,13 @@ defmodule LivekitexAgent.Worker do
     case job_type do
       :agent_session ->
         handle_agent_session_job(job, state)
+
       :tool_execution ->
         handle_tool_execution_job(job, state)
+
       :audio_processing ->
         handle_audio_processing_job(job, state)
+
       _ ->
         {:error, :unknown_job_type}
     end
@@ -392,7 +402,8 @@ defmodule LivekitexAgent.Worker do
     session_config = Map.get(job, :session_config, %{})
 
     TelemetryLogger.info("Starting agent session",
-      session_id: Map.get(session_config, :session_id))
+      session_id: Map.get(session_config, :session_id)
+    )
 
     # Simulate session processing
     Process.sleep(100)
@@ -419,7 +430,8 @@ defmodule LivekitexAgent.Worker do
 
     TelemetryLogger.info("Processing audio",
       processing_type: processing_type,
-      data_size: byte_size(audio_data || <<>>))
+      data_size: byte_size(audio_data || <<>>)
+    )
 
     # Simulate audio processing
     Process.sleep(50)
@@ -435,6 +447,7 @@ defmodule LivekitexAgent.Worker do
     case result do
       :success ->
         %{metrics | jobs_completed: metrics.jobs_completed + 1}
+
       :failure ->
         %{metrics | jobs_failed: metrics.jobs_failed + 1}
     end

@@ -174,7 +174,8 @@ defmodule LivekitexAgent.StreamManager do
     Logger.debug("StreamManager started with buffer_size: #{state.buffer_size_ms}ms")
 
     # Start periodic sync check
-    :timer.send_interval(25, self(), :sync_check) # 40Hz sync checking
+    # 40Hz sync checking
+    :timer.send_interval(25, self(), :sync_check)
 
     {:ok, state}
   end
@@ -391,12 +392,17 @@ defmodule LivekitexAgent.StreamManager do
   end
 
   defp calculate_max_buffer_size(stream_type, state) do
-    base_size = case stream_type do
-      :audio -> div(state.buffer_size_ms, 20) # Assuming 20ms audio frames
-      :video -> div(state.buffer_size_ms, 33) # Assuming 30fps video
-      :text -> 100 # Text messages
-      :metadata -> 50 # Metadata messages
-    end
+    base_size =
+      case stream_type do
+        # Assuming 20ms audio frames
+        :audio -> div(state.buffer_size_ms, 20)
+        # Assuming 30fps video
+        :video -> div(state.buffer_size_ms, 33)
+        # Text messages
+        :text -> 100
+        # Metadata messages
+        :metadata -> 50
+      end
 
     max(base_size, 1)
   end
@@ -419,7 +425,7 @@ defmodule LivekitexAgent.StreamManager do
     {sync_events, corrected_state} =
       state.sync_timestamps
       |> Enum.reduce({sync_events, state}, fn {stream_type, timestamp}, {events, acc_state} ->
-        if timestamp && (current_time - timestamp) > acc_state.sync_threshold_ms do
+        if timestamp && current_time - timestamp > acc_state.sync_threshold_ms do
           # Emit synchronization event
           event = {:sync_event, stream_type, current_time - timestamp}
           {[event | events], acc_state}
@@ -468,8 +474,6 @@ defmodule LivekitexAgent.StreamManager do
     # Check if packet meets processing criteria
     packet_age >= 0 and packet_age <= state.max_latency_ms
   end
-
-
 
   defp calculate_buffer_levels(buffers) do
     Map.new(buffers, fn {stream_type, buffer} ->

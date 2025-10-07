@@ -123,16 +123,19 @@ defmodule LivekitexAgent.Application do
 
       _pid ->
         try do
-          LivekitexAgent.ShutdownManager.initiate_shutdown([
+          LivekitexAgent.ShutdownManager.initiate_shutdown(
             timeout: shutdown_timeout,
             reason: :normal
-          ])
+          )
 
           # Wait for shutdown to complete
           wait_for_shutdown_completion(shutdown_timeout)
         catch
           :exit, reason ->
-            Logger.warning("ShutdownManager failed: #{inspect(reason)}, falling back to basic shutdown")
+            Logger.warning(
+              "ShutdownManager failed: #{inspect(reason)}, falling back to basic shutdown"
+            )
+
             basic_shutdown(shutdown_timeout)
         end
     end
@@ -234,7 +237,9 @@ defmodule LivekitexAgent.Application do
 
   defp get_active_jobs_count do
     case Process.whereis(LivekitexAgent.WorkerManager) do
-      nil -> 0
+      nil ->
+        0
+
       _pid ->
         try do
           status = LivekitexAgent.WorkerManager.get_status()
@@ -300,10 +305,10 @@ defmodule LivekitexAgent.Application do
         perform_graceful_shutdown()
 
       _pid ->
-        LivekitexAgent.ShutdownManager.initiate_shutdown([
+        LivekitexAgent.ShutdownManager.initiate_shutdown(
           reason: :signal,
           callback: fn -> System.stop(0) end
-        ])
+        )
     end
   end
 

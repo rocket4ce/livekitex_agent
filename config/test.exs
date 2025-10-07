@@ -23,21 +23,25 @@ config :livekitex_agent,
   # Test worker options
   default_worker_options: [
     max_concurrent_jobs: 2,
-    drain_timeout: 5_000,  # Very short timeout for tests
-    health_check_port: 8081,  # Different port to avoid conflicts
+    # Very short timeout for tests
+    drain_timeout: 5_000,
+    # Different port to avoid conflicts
+    health_check_port: 8081,
     log_level: :warn
   ],
 
   # Faster timeouts for testing
   session: [
-    idle_timeout: 30_000,  # 30 seconds
+    # 30 seconds
+    idle_timeout: 30_000,
     max_conversation_turns: 10
   ]
 
 # Reduced logging in tests
 config :logger,
   level: :warn,
-  backends: [],  # No output during tests unless there's an error
+  # No output during tests unless there's an error
+  backends: [],
   compile_time_purge_matching: [
     [level_lower_than: :warn]
   ]

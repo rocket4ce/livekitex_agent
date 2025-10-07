@@ -50,18 +50,18 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
   @type error_category :: :transient | :permanent | :rate_limited | :timeout | :unknown
 
   @type circuit_breaker_options :: %{
-    failure_threshold: pos_integer(),
-    recovery_timeout_ms: pos_integer(),
-    request_timeout_ms: pos_integer(),
-    half_open_max_calls: pos_integer()
-  }
+          failure_threshold: pos_integer(),
+          recovery_timeout_ms: pos_integer(),
+          request_timeout_ms: pos_integer(),
+          half_open_max_calls: pos_integer()
+        }
 
   @type retry_options :: %{
-    max_retries: non_neg_integer(),
-    base_delay_ms: pos_integer(),
-    max_delay_ms: pos_integer(),
-    backoff_multiplier: float()
-  }
+          max_retries: non_neg_integer(),
+          base_delay_ms: pos_integer(),
+          max_delay_ms: pos_integer(),
+          backoff_multiplier: float()
+        }
 
   ## Client API
 
@@ -146,7 +146,8 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
       :timeout -> attempt < max_retries
       :rate_limited -> attempt < max_retries
       :permanent -> false
-      :unknown -> attempt < max(1, div(max_retries, 2))  # Fewer retries for unknown errors
+      # Fewer retries for unknown errors
+      :unknown -> attempt < max(1, div(max_retries, 2))
     end
   end
 
@@ -165,7 +166,9 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
     task = Task.async(fun)
 
     case Task.yield(task, timeout_ms) do
-      {:ok, result} -> result
+      {:ok, result} ->
+        result
+
       nil ->
         Task.shutdown(task)
         {:error, :timeout}
@@ -180,6 +183,7 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
       [] ->
         :ets.insert(:rate_limiters, {name, [], window_ms, max_calls})
         :ok
+
       [{^name, calls, ^window_ms, ^max_calls}] ->
         now = System.monotonic_time(:millisecond)
         recent_calls = Enum.filter(calls, fn call_time -> now - call_time < window_ms end)
@@ -247,21 +251,14 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
 
   @impl true
   def handle_call(:open_circuit, _from, state) do
-    new_state = %{state |
-      state: :open,
-      last_failure_time: System.monotonic_time(:millisecond)
-    }
+    new_state = %{state | state: :open, last_failure_time: System.monotonic_time(:millisecond)}
     Logger.warning("Circuit breaker manually opened: #{state.name}")
     {:reply, :ok, new_state}
   end
 
   @impl true
   def handle_call(:close_circuit, _from, state) do
-    new_state = %{state |
-      state: :closed,
-      failure_count: 0,
-      half_open_success_count: 0
-    }
+    new_state = %{state | state: :closed, failure_count: 0, half_open_success_count: 0}
     Logger.info("Circuit breaker manually closed: #{state.name}")
     {:reply, :ok, new_state}
   end
@@ -292,13 +289,14 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
   defp handle_closed_call(fun, state) do
     start_time = System.monotonic_time(:millisecond)
 
-    result = try do
-      with_timeout(fun, state.request_timeout_ms)
-    rescue
-      e -> {:error, e}
-    catch
-      :exit, reason -> {:exit, reason}
-    end
+    result =
+      try do
+        with_timeout(fun, state.request_timeout_ms)
+      rescue
+        e -> {:error, e}
+      catch
+        :exit, reason -> {:exit, reason}
+      end
 
     duration = System.monotonic_time(:millisecond) - start_time
 
@@ -333,35 +331,40 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
   defp handle_half_open_call(fun, state) do
     start_time = System.monotonic_time(:millisecond)
 
-    result = try do
-      with_timeout(fun, state.request_timeout_ms)
-    rescue
-      e -> {:error, e}
-    catch
-      :exit, reason -> {:exit, reason}
-    end
+    result =
+      try do
+        with_timeout(fun, state.request_timeout_ms)
+      rescue
+        e -> {:error, e}
+      catch
+        :exit, reason -> {:exit, reason}
+      end
 
     duration = System.monotonic_time(:millisecond) - start_time
 
     case result do
       {:error, _} = _error ->
         # Failure in half-open state, go back to open
-        new_state = %{state |
-          state: :open,
-          failure_count: state.failure_count + 1,
-          last_failure_time: System.monotonic_time(:millisecond)
+        new_state = %{
+          state
+          | state: :open,
+            failure_count: state.failure_count + 1,
+            last_failure_time: System.monotonic_time(:millisecond)
         }
+
         schedule_recovery_check(new_state)
         new_metrics = update_metrics(state.metrics, :failure, duration)
         {:reply, result, %{new_state | metrics: new_metrics}}
 
       {:exit, _} ->
         # Exit in half-open state, go back to open
-        new_state = %{state |
-          state: :open,
-          failure_count: state.failure_count + 1,
-          last_failure_time: System.monotonic_time(:millisecond)
+        new_state = %{
+          state
+          | state: :open,
+            failure_count: state.failure_count + 1,
+            last_failure_time: System.monotonic_time(:millisecond)
         }
+
         schedule_recovery_check(new_state)
         new_metrics = update_metrics(state.metrics, :failure, duration)
         {:reply, {:error, :circuit_breaker_failure}, %{new_state | metrics: new_metrics}}
@@ -370,17 +373,14 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
         # Success in half-open state
         new_success_count = state.half_open_success_count + 1
 
-        new_state = if new_success_count >= state.half_open_max_calls do
-          # Enough successes, close the circuit
-          Logger.info("Circuit breaker recovered: #{state.name}")
-          %{state |
-            state: :closed,
-            failure_count: 0,
-            half_open_success_count: 0
-          }
-        else
-          %{state | half_open_success_count: new_success_count}
-        end
+        new_state =
+          if new_success_count >= state.half_open_max_calls do
+            # Enough successes, close the circuit
+            Logger.info("Circuit breaker recovered: #{state.name}")
+            %{state | state: :closed, failure_count: 0, half_open_success_count: 0}
+          else
+            %{state | half_open_success_count: new_success_count}
+          end
 
         new_metrics = update_metrics(state.metrics, :success, duration)
         {:reply, success_result, %{new_state | metrics: new_metrics}}
@@ -391,15 +391,19 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
     _error_category = categorize_error(error)
     new_failure_count = state.failure_count + 1
 
-    Logger.warning("Circuit breaker failure #{new_failure_count}: #{state.name}, error: #{inspect(error)}")
+    Logger.warning(
+      "Circuit breaker failure #{new_failure_count}: #{state.name}, error: #{inspect(error)}"
+    )
 
     if new_failure_count >= state.failure_threshold do
       # Open the circuit
-      new_state = %{state |
-        state: :open,
-        failure_count: new_failure_count,
-        last_failure_time: System.monotonic_time(:millisecond)
+      new_state = %{
+        state
+        | state: :open,
+          failure_count: new_failure_count,
+          last_failure_time: System.monotonic_time(:millisecond)
       }
+
       schedule_recovery_check(new_state)
       Logger.error("Circuit breaker opened: #{state.name}")
       new_state
@@ -418,7 +422,9 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
 
   defp should_attempt_recovery?(state) do
     case state.last_failure_time do
-      nil -> true
+      nil ->
+        true
+
       last_failure ->
         now = System.monotonic_time(:millisecond)
         now - last_failure >= state.recovery_timeout_ms
@@ -444,22 +450,26 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
   defp update_metrics(metrics, call_type, duration) do
     new_total = metrics.total_calls + 1
 
-    updated = case call_type do
-      :success ->
-        new_successful = metrics.successful_calls + 1
-        new_avg = calculate_average_response_time(
-          metrics.average_response_time,
-          duration,
-          new_total
-        )
-        %{metrics | successful_calls: new_successful, average_response_time: new_avg}
+    updated =
+      case call_type do
+        :success ->
+          new_successful = metrics.successful_calls + 1
 
-      :failure ->
-        %{metrics | failed_calls: metrics.failed_calls + 1}
+          new_avg =
+            calculate_average_response_time(
+              metrics.average_response_time,
+              duration,
+              new_total
+            )
 
-      :rejected ->
-        %{metrics | rejected_calls: metrics.rejected_calls + 1}
-    end
+          %{metrics | successful_calls: new_successful, average_response_time: new_avg}
+
+        :failure ->
+          %{metrics | failed_calls: metrics.failed_calls + 1}
+
+        :rejected ->
+          %{metrics | rejected_calls: metrics.rejected_calls + 1}
+      end
 
     %{updated | total_calls: new_total}
   end
@@ -480,7 +490,10 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
           # Add jitter to prevent thundering herd
           jittered_delay = delay + :rand.uniform(div(delay, 10) + 1)
 
-          Logger.debug("Retrying after #{jittered_delay}ms, attempt #{attempt + 1}/#{max_retries}")
+          Logger.debug(
+            "Retrying after #{jittered_delay}ms, attempt #{attempt + 1}/#{max_retries}"
+          )
+
           Process.sleep(jittered_delay)
 
           do_retry(fun, attempt + 1, max_retries, base_delay_ms, max_delay_ms, backoff_multiplier)
@@ -493,6 +506,7 @@ defmodule LivekitexAgent.Utils.ErrorHandler do
         if attempt > 0 do
           Logger.info("Operation succeeded after #{attempt} retries")
         end
+
         result
     end
   end

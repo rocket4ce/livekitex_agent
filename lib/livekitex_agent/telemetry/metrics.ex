@@ -52,8 +52,10 @@ defmodule LivekitexAgent.Telemetry.Metrics do
   require Logger
 
   @metrics_table :livekitex_agent_metrics
-  @aggregation_interval 60_000  # 1 minute
-  @retention_period 86_400_000   # 24 hours in milliseconds
+  # 1 minute
+  @aggregation_interval 60_000
+  # 24 hours in milliseconds
+  @retention_period 86_400_000
 
   defstruct [
     :config,
@@ -71,23 +73,23 @@ defmodule LivekitexAgent.Telemetry.Metrics do
   @type timestamp :: integer()
 
   @type metric_point :: %{
-    name: String.t(),
-    type: metric_type(),
-    value: metric_value(),
-    tags: metric_tags(),
-    timestamp: timestamp()
-  }
+          name: String.t(),
+          type: metric_type(),
+          value: metric_value(),
+          tags: metric_tags(),
+          timestamp: timestamp()
+        }
 
   @type metrics_config :: %{
-    retention_hours: integer(),
-    aggregation_interval_ms: integer(),
-    export_interval_ms: integer(),
-    enable_prometheus: boolean(),
-    enable_statsd: boolean(),
-    statsd_host: String.t(),
-    statsd_port: integer(),
-    custom_exporters: list()
-  }
+          retention_hours: integer(),
+          aggregation_interval_ms: integer(),
+          export_interval_ms: integer(),
+          enable_prometheus: boolean(),
+          enable_statsd: boolean(),
+          statsd_host: String.t(),
+          statsd_port: integer(),
+          custom_exporters: list()
+        }
 
   # Client API
 
@@ -383,13 +385,12 @@ defmodule LivekitexAgent.Telemetry.Metrics do
     }
 
     # Start periodic timers
-    aggregation_timer = Process.send_after(self(), :aggregate_metrics, config.aggregation_interval_ms)
+    aggregation_timer =
+      Process.send_after(self(), :aggregate_metrics, config.aggregation_interval_ms)
+
     cleanup_timer = Process.send_after(self(), :cleanup_old_metrics, @retention_period)
 
-    state = %{state |
-      aggregation_timer: aggregation_timer,
-      cleanup_timer: cleanup_timer
-    }
+    state = %{state | aggregation_timer: aggregation_timer, cleanup_timer: cleanup_timer}
 
     Logger.info("Metrics system started with config: #{inspect(config)}")
     {:ok, state}
@@ -398,25 +399,27 @@ defmodule LivekitexAgent.Telemetry.Metrics do
   @impl true
   def handle_call({:get_metric, name, opts}, _from, state) do
     limit = Keyword.get(opts, :limit, 100)
-    from_time = Keyword.get(opts, :from, System.system_time(:millisecond) - 3_600_000)  # 1 hour ago
+    # 1 hour ago
+    from_time = Keyword.get(opts, :from, System.system_time(:millisecond) - 3_600_000)
 
-    metrics = :ets.select(@metrics_table, [
-      {
-        {{name, :"$1"}, :"$2", :"$3", :"$4"},
-        [{:>=, :"$1", from_time}],
-        [{{:"$1", :"$2", :"$3", :"$4"}}]
-      }
-    ])
-    |> Enum.take(limit)
-    |> Enum.map(fn {timestamp, type, value, tags} ->
-      %{
-        name: name,
-        timestamp: timestamp,
-        type: type,
-        value: value,
-        tags: tags
-      }
-    end)
+    metrics =
+      :ets.select(@metrics_table, [
+        {
+          {{name, :"$1"}, :"$2", :"$3", :"$4"},
+          [{:>=, :"$1", from_time}],
+          [{{:"$1", :"$2", :"$3", :"$4"}}]
+        }
+      ])
+      |> Enum.take(limit)
+      |> Enum.map(fn {timestamp, type, value, tags} ->
+        %{
+          name: name,
+          timestamp: timestamp,
+          type: type,
+          value: value,
+          tags: tags
+        }
+      end)
 
     {:reply, metrics, state}
   end
@@ -428,13 +431,14 @@ defmodule LivekitexAgent.Telemetry.Metrics do
     aggregation_type = Keyword.get(opts, :aggregation, :avg)
     interval_ms = Keyword.get(opts, :interval, 60) * 1000
 
-    raw_metrics = :ets.select(@metrics_table, [
-      {
-        {{name, :"$1"}, :"$2", :"$3", :"$4"},
-        [{:>=, :"$1", from_time}, {:"=<", :"$1", to_time}],
-        [{{:"$1", :"$2", :"$3", :"$4"}}]
-      }
-    ])
+    raw_metrics =
+      :ets.select(@metrics_table, [
+        {
+          {{name, :"$1"}, :"$2", :"$3", :"$4"},
+          [{:>=, :"$1", from_time}, {:"=<", :"$1", to_time}],
+          [{{:"$1", :"$2", :"$3", :"$4"}}]
+        }
+      ])
 
     aggregated = aggregate_metrics_by_interval(raw_metrics, interval_ms, aggregation_type)
     {:reply, aggregated, state}
@@ -443,21 +447,22 @@ defmodule LivekitexAgent.Telemetry.Metrics do
   @impl true
   def handle_call(:list_metrics, _from, state) do
     # Get unique metric names and their types
-    metrics_info = :ets.tab2list(@metrics_table)
-    |> Enum.group_by(fn {{name, _timestamp}, _type, _value, _tags} -> name end)
-    |> Enum.map(fn {name, entries} ->
-      types = entries |> Enum.map(fn {_, type, _, _} -> type end) |> Enum.uniq()
-      count = length(entries)
-      latest = entries |> Enum.max_by(fn {{_, timestamp}, _, _, _} -> timestamp end)
+    metrics_info =
+      :ets.tab2list(@metrics_table)
+      |> Enum.group_by(fn {{name, _timestamp}, _type, _value, _tags} -> name end)
+      |> Enum.map(fn {name, entries} ->
+        types = entries |> Enum.map(fn {_, type, _, _} -> type end) |> Enum.uniq()
+        count = length(entries)
+        latest = entries |> Enum.max_by(fn {{_, timestamp}, _, _, _} -> timestamp end)
 
-      %{
-        name: name,
-        types: types,
-        count: count,
-        latest_timestamp: elem(elem(latest, 0), 1),
-        latest_value: elem(latest, 2)
-      }
-    end)
+        %{
+          name: name,
+          types: types,
+          count: count,
+          latest_timestamp: elem(elem(latest, 0), 1),
+          latest_value: elem(latest, 2)
+        }
+      end)
 
     {:reply, metrics_info, state}
   end
@@ -545,15 +550,16 @@ defmodule LivekitexAgent.Telemetry.Metrics do
   @impl true
   def handle_info(:cleanup_old_metrics, state) do
     # Remove old metrics beyond retention period
-    cutoff_time = System.system_time(:millisecond) - (state.config.retention_hours * 3_600_000)
+    cutoff_time = System.system_time(:millisecond) - state.config.retention_hours * 3_600_000
 
-    old_keys = :ets.select(@metrics_table, [
-      {
-        {{:"$1", :"$2"}, :"$3", :"$4", :"$5"},
-        [{:<, :"$2", cutoff_time}],
-        [{{:"$1", :"$2"}}]
-      }
-    ])
+    old_keys =
+      :ets.select(@metrics_table, [
+        {
+          {{:"$1", :"$2"}, :"$3", :"$4", :"$5"},
+          [{:<, :"$2", cutoff_time}],
+          [{{:"$1", :"$2"}}]
+        }
+      ])
 
     Enum.each(old_keys, fn key ->
       :ets.delete(@metrics_table, key)
@@ -590,17 +596,19 @@ defmodule LivekitexAgent.Telemetry.Metrics do
   defp init_export_handlers(config) do
     handlers = []
 
-    handlers = if config.enable_prometheus do
-      [:prometheus | handlers]
-    else
-      handlers
-    end
+    handlers =
+      if config.enable_prometheus do
+        [:prometheus | handlers]
+      else
+        handlers
+      end
 
-    handlers = if config.enable_statsd do
-      [{:statsd, config.statsd_host, config.statsd_port} | handlers]
-    else
-      handlers
-    end
+    handlers =
+      if config.enable_statsd do
+        [{:statsd, config.statsd_host, config.statsd_port} | handlers]
+      else
+        handlers
+      end
 
     handlers ++ config.custom_exporters
   end
@@ -615,6 +623,7 @@ defmodule LivekitexAgent.Telemetry.Metrics do
     Enum.each(state.custom_collectors, fn {name, collector_func} ->
       try do
         metrics = collector_func.()
+
         Enum.each(metrics, fn {type, metric_name, value, tags} ->
           record_metric(type, metric_name, value, tags)
         end)
@@ -662,13 +671,14 @@ defmodule LivekitexAgent.Telemetry.Metrics do
     |> Enum.map(fn {bucket_timestamp, bucket_metrics} ->
       values = Enum.map(bucket_metrics, fn {_timestamp, _type, value, _tags} -> value end)
 
-      aggregated_value = case aggregation_type do
-        :avg -> Enum.sum(values) / length(values)
-        :sum -> Enum.sum(values)
-        :min -> Enum.min(values)
-        :max -> Enum.max(values)
-        :count -> length(values)
-      end
+      aggregated_value =
+        case aggregation_type do
+          :avg -> Enum.sum(values) / length(values)
+          :sum -> Enum.sum(values)
+          :min -> Enum.min(values)
+          :max -> Enum.max(values)
+          :count -> length(values)
+        end
 
       %{
         timestamp: bucket_timestamp,
@@ -782,71 +792,123 @@ defmodule LivekitexAgent.Telemetry.Metrics do
 
   # Event Handlers
 
-  defp handle_session_event([:livekitex_agent, :session, :started], _measurements, metadata, _config) do
+  defp handle_session_event(
+         [:livekitex_agent, :session, :started],
+         _measurements,
+         metadata,
+         _config
+       ) do
     counter("agent.sessions.started", 1, %{"agent_type" => metadata[:agent_type] || "unknown"})
     gauge("agent.sessions.active", 1, %{"_operation" => "increment"})
   end
 
-  defp handle_session_event([:livekitex_agent, :session, :stopped], measurements, metadata, _config) do
+  defp handle_session_event(
+         [:livekitex_agent, :session, :stopped],
+         measurements,
+         metadata,
+         _config
+       ) do
     if measurements[:duration_ms] do
       histogram("agent.session.duration_ms", measurements.duration_ms, %{
         "agent_type" => metadata[:agent_type] || "unknown",
         "reason" => metadata[:reason] || "normal"
       })
     end
+
     gauge("agent.sessions.active", 1, %{"_operation" => "decrement"})
   end
 
-  defp handle_session_event([:livekitex_agent, :session, :turn_completed], measurements, metadata, _config) do
+  defp handle_session_event(
+         [:livekitex_agent, :session, :turn_completed],
+         measurements,
+         metadata,
+         _config
+       ) do
     counter("agent.turns.completed", 1, %{"session_id" => metadata[:session_id] || "unknown"})
+
     if measurements[:duration_ms] do
       histogram("agent.turn.duration_ms", measurements.duration_ms, metadata)
     end
   end
 
-  defp handle_session_event([:livekitex_agent, :session, :error], _measurements, metadata, _config) do
+  defp handle_session_event(
+         [:livekitex_agent, :session, :error],
+         _measurements,
+         metadata,
+         _config
+       ) do
     counter("agent.sessions.errors", 1, %{
       "error_type" => metadata[:error_type] || "unknown",
       "agent_type" => metadata[:agent_type] || "unknown"
     })
   end
 
-  defp handle_audio_event([:livekitex_agent, :audio, :stt_latency], measurements, metadata, _config) do
+  defp handle_audio_event(
+         [:livekitex_agent, :audio, :stt_latency],
+         measurements,
+         metadata,
+         _config
+       ) do
     histogram("audio.stt.latency_ms", measurements.latency_ms, %{
       "provider" => metadata[:provider] || "unknown",
       "model" => metadata[:model] || "unknown"
     })
   end
 
-  defp handle_audio_event([:livekitex_agent, :audio, :tts_latency], measurements, metadata, _config) do
+  defp handle_audio_event(
+         [:livekitex_agent, :audio, :tts_latency],
+         measurements,
+         metadata,
+         _config
+       ) do
     histogram("audio.tts.latency_ms", measurements.latency_ms, %{
       "provider" => metadata[:provider] || "unknown",
       "voice" => metadata[:voice] || "unknown"
     })
   end
 
-  defp handle_audio_event([:livekitex_agent, :audio, :quality_score], measurements, metadata, _config) do
+  defp handle_audio_event(
+         [:livekitex_agent, :audio, :quality_score],
+         measurements,
+         metadata,
+         _config
+       ) do
     gauge("audio.quality.score", measurements.score, %{
       "session_id" => metadata[:session_id] || "unknown",
       "metric_type" => metadata[:metric_type] || "overall"
     })
   end
 
-  defp handle_connection_event([:livekitex_agent, :connection, :established], _measurements, metadata, _config) do
+  defp handle_connection_event(
+         [:livekitex_agent, :connection, :established],
+         _measurements,
+         metadata,
+         _config
+       ) do
     counter("connection.established", 1, %{
       "room_id" => metadata[:room_id] || "unknown",
       "participant_type" => metadata[:participant_type] || "agent"
     })
   end
 
-  defp handle_connection_event([:livekitex_agent, :connection, :failed], _measurements, metadata, _config) do
+  defp handle_connection_event(
+         [:livekitex_agent, :connection, :failed],
+         _measurements,
+         metadata,
+         _config
+       ) do
     counter("connection.failed", 1, %{
       "reason" => metadata[:reason] || "unknown",
       "room_id" => metadata[:room_id] || "unknown"
     })
   end
 
-  defp handle_connection_event([:livekitex_agent, :connection, :quality_changed], measurements, metadata, _config) do
+  defp handle_connection_event(
+         [:livekitex_agent, :connection, :quality_changed],
+         measurements,
+         metadata,
+         _config
+       ) do
     gauge("connection.quality.score", measurements.quality_score, %{
       "room_id" => metadata[:room_id] || "unknown",
       "connection_id" => metadata[:connection_id] || "unknown"
@@ -1022,27 +1084,36 @@ defmodule LivekitexAgent.Telemetry.Metrics do
 
     # Check high latency
     avg_latency = get_current_avg_latency()
-    recommendations = if avg_latency > 1000 do
-      ["Consider optimizing audio processing pipeline - high latency detected" | recommendations]
-    else
-      recommendations
-    end
+
+    recommendations =
+      if avg_latency > 1000 do
+        [
+          "Consider optimizing audio processing pipeline - high latency detected"
+          | recommendations
+        ]
+      else
+        recommendations
+      end
 
     # Check error rates
     error_rate = get_current_error_rate()
-    recommendations = if error_rate > 0.05 do
-      ["Investigate error patterns - error rate above 5%" | recommendations]
-    else
-      recommendations
-    end
+
+    recommendations =
+      if error_rate > 0.05 do
+        ["Investigate error patterns - error rate above 5%" | recommendations]
+      else
+        recommendations
+      end
 
     # Check memory usage
     memory_usage = get_current_memory_usage_percentage()
-    recommendations = if memory_usage > 0.8 do
-      ["Consider increasing memory allocation or optimizing memory usage" | recommendations]
-    else
-      recommendations
-    end
+
+    recommendations =
+      if memory_usage > 0.8 do
+        ["Consider increasing memory allocation or optimizing memory usage" | recommendations]
+      else
+        recommendations
+      end
 
     if recommendations == [] do
       ["System performing within normal parameters"]
@@ -1068,7 +1139,10 @@ defmodule LivekitexAgent.Telemetry.Metrics do
 
   defp get_worker_throughput(_from, _to), do: %{requests_per_second: 10.5}
   defp get_worker_latency_distribution(_from, _to), do: %{p50: 200, p95: 800, p99: 1200}
-  defp get_worker_error_rates(_from, _to), do: %{rate: 0.02, by_type: %{timeout: 0.01, connection: 0.01}}
+
+  defp get_worker_error_rates(_from, _to),
+    do: %{rate: 0.02, by_type: %{timeout: 0.01, connection: 0.01}}
+
   defp get_worker_resource_utilization, do: %{cpu: 0.3, memory: 0.4}
   defp get_scaling_events(_from, _to), do: []
 

@@ -60,35 +60,35 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
   @type connection_state :: :disconnected | :connecting | :connected | :reconnecting | :failed
 
   @type webrtc_config :: %{
-    room_name: String.t(),
-    participant_identity: String.t(),
-    livekit_url: String.t(),
-    api_key: String.t(),
-    api_secret: String.t(),
-    audio_enabled: boolean(),
-    video_enabled: boolean(),
-    data_channel_enabled: boolean(),
-    auto_reconnect: boolean(),
-    connection_timeout: integer()
-  }
+          room_name: String.t(),
+          participant_identity: String.t(),
+          livekit_url: String.t(),
+          api_key: String.t(),
+          api_secret: String.t(),
+          audio_enabled: boolean(),
+          video_enabled: boolean(),
+          data_channel_enabled: boolean(),
+          auto_reconnect: boolean(),
+          connection_timeout: integer()
+        }
 
   @type t :: %__MODULE__{
-    room_name: String.t(),
-    participant_identity: String.t(),
-    livekitex_client: pid() | nil,
-    connection_state: connection_state(),
-    audio_track: map() | nil,
-    video_track: map() | nil,
-    data_channel: map() | nil,
-    parent_pid: pid() | nil,
-    event_callbacks: map(),
-    connection_quality: map(),
-    metrics: map(),
-    heartbeat_timer: reference() | nil,
-    last_activity: DateTime.t(),
-    reconnect_attempts: non_neg_integer(),
-    config: webrtc_config()
-  }
+          room_name: String.t(),
+          participant_identity: String.t(),
+          livekitex_client: pid() | nil,
+          connection_state: connection_state(),
+          audio_track: map() | nil,
+          video_track: map() | nil,
+          data_channel: map() | nil,
+          parent_pid: pid() | nil,
+          event_callbacks: map(),
+          connection_quality: map(),
+          metrics: map(),
+          heartbeat_timer: reference() | nil,
+          last_activity: DateTime.t(),
+          reconnect_attempts: non_neg_integer(),
+          config: webrtc_config()
+        }
 
   # Client API
 
@@ -233,10 +233,11 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
 
     case establish_livekit_connection(state) do
       {:ok, client_pid} ->
-        new_state = %{state |
-          livekitex_client: client_pid,
-          connection_state: :connecting,
-          last_activity: DateTime.utc_now()
+        new_state = %{
+          state
+          | livekitex_client: client_pid,
+            connection_state: :connecting,
+            last_activity: DateTime.utc_now()
         }
 
         # Start heartbeat timer
@@ -267,14 +268,15 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
       send(state.livekitex_client, :disconnect)
     end
 
-    new_state = %{state |
-      livekitex_client: nil,
-      connection_state: :disconnected,
-      audio_track: nil,
-      video_track: nil,
-      data_channel: nil,
-      heartbeat_timer: nil,
-      reconnect_attempts: 0
+    new_state = %{
+      state
+      | livekitex_client: nil,
+        connection_state: :disconnected,
+        audio_track: nil,
+        video_track: nil,
+        data_channel: nil,
+        heartbeat_timer: nil,
+        reconnect_attempts: 0
     }
 
     emit_event(new_state, :disconnected, %{})
@@ -296,6 +298,7 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
         data_channel: state.data_channel != nil
       }
     }
+
     {:reply, info, state}
   end
 
@@ -399,11 +402,12 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
   def handle_info({:livekit_disconnected, reason}, state) do
     Logger.info("Disconnected from LiveKit: #{inspect(reason)}")
 
-    new_state = %{state |
-      connection_state: :disconnected,
-      audio_track: nil,
-      video_track: nil,
-      data_channel: nil
+    new_state = %{
+      state
+      | connection_state: :disconnected,
+        audio_track: nil,
+        video_track: nil,
+        data_channel: nil
     }
 
     emit_event(new_state, :disconnected, %{reason: reason})
@@ -423,12 +427,14 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
 
     case establish_livekit_connection(state) do
       {:ok, client_pid} ->
-        new_state = %{state |
-          livekitex_client: client_pid,
-          connection_state: :connecting,
-          reconnect_attempts: state.reconnect_attempts + 1,
-          last_activity: DateTime.utc_now()
+        new_state = %{
+          state
+          | livekitex_client: client_pid,
+            connection_state: :connecting,
+            reconnect_attempts: state.reconnect_attempts + 1,
+            last_activity: DateTime.utc_now()
         }
+
         {:noreply, new_state}
 
       {:error, reason} ->
@@ -484,45 +490,44 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
 
   defp setup_media_tracks(state, _room_info) do
     # Setup audio track if enabled
-    audio_track = if state.config.audio_enabled do
-      %{
-        kind: :audio,
-        codec: @default_audio_codec,
-        enabled: true,
-        id: "audio_#{state.participant_identity}"
-      }
-    else
-      nil
-    end
+    audio_track =
+      if state.config.audio_enabled do
+        %{
+          kind: :audio,
+          codec: @default_audio_codec,
+          enabled: true,
+          id: "audio_#{state.participant_identity}"
+        }
+      else
+        nil
+      end
 
     # Setup video track if enabled
-    video_track = if state.config.video_enabled do
-      %{
-        kind: :video,
-        codec: @default_video_codec,
-        enabled: true,
-        id: "video_#{state.participant_identity}"
-      }
-    else
-      nil
-    end
+    video_track =
+      if state.config.video_enabled do
+        %{
+          kind: :video,
+          codec: @default_video_codec,
+          enabled: true,
+          id: "video_#{state.participant_identity}"
+        }
+      else
+        nil
+      end
 
     # Setup data channel if enabled
-    data_channel = if state.config.data_channel_enabled do
-      %{
-        label: "agent_control",
-        ordered: true,
-        id: "data_#{state.participant_identity}"
-      }
-    else
-      nil
-    end
+    data_channel =
+      if state.config.data_channel_enabled do
+        %{
+          label: "agent_control",
+          ordered: true,
+          id: "data_#{state.participant_identity}"
+        }
+      else
+        nil
+      end
 
-    %{state |
-      audio_track: audio_track,
-      video_track: video_track,
-      data_channel: data_channel
-    }
+    %{state | audio_track: audio_track, video_track: video_track, data_channel: data_channel}
   end
 
   defp handle_livekit_event(event, state) do
@@ -532,6 +537,7 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
           participant_id: participant_id,
           audio_data: audio_data
         })
+
         new_metrics = update_metrics(state.metrics, :audio_received, byte_size(audio_data))
         {:noreply, %{state | metrics: new_metrics, last_activity: DateTime.utc_now()}}
 
@@ -540,6 +546,7 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
           participant_id: participant_id,
           video_data: video_data
         })
+
         new_metrics = update_metrics(state.metrics, :video_received, byte_size(video_data))
         {:noreply, %{state | metrics: new_metrics, last_activity: DateTime.utc_now()}}
 
@@ -548,6 +555,7 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
           participant_id: participant_id,
           data: data
         })
+
         {:noreply, %{state | last_activity: DateTime.utc_now()}}
 
       {:participant_joined, participant_info} ->
@@ -627,10 +635,14 @@ defmodule LivekitexAgent.Realtime.WebRTCHandler do
   defp calculate_current_metrics(state) do
     duration = DateTime.diff(DateTime.utc_now(), state.metrics.started_at, :second)
 
-    %{state.metrics |
-      connection_duration: duration,
-      total_bytes_sent: state.metrics.audio_sent_bytes + state.metrics.video_sent_bytes + state.metrics.data_sent_bytes,
-      total_bytes_received: state.metrics.audio_received_bytes + state.metrics.video_received_bytes
+    %{
+      state.metrics
+      | connection_duration: duration,
+        total_bytes_sent:
+          state.metrics.audio_sent_bytes + state.metrics.video_sent_bytes +
+            state.metrics.data_sent_bytes,
+        total_bytes_received:
+          state.metrics.audio_received_bytes + state.metrics.video_received_bytes
     }
   end
 

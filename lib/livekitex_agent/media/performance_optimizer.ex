@@ -127,7 +127,8 @@ defmodule LivekitexAgent.Media.PerformanceOptimizer do
     }
 
     # Start periodic performance monitoring
-    monitor_ref = :timer.send_interval(@optimization_check_interval_ms, self(), :performance_check)
+    monitor_ref =
+      :timer.send_interval(@optimization_check_interval_ms, self(), :performance_check)
 
     Logger.info("PerformanceOptimizer started with target latency: #{state.target_latency_ms}ms")
 
@@ -193,9 +194,10 @@ defmodule LivekitexAgent.Media.PerformanceOptimizer do
 
   defp apply_optimizations(optimizations, state) do
     try do
-      new_state = Enum.reduce(optimizations, state, fn opt, acc_state ->
-        apply_optimization(opt, acc_state)
-      end)
+      new_state =
+        Enum.reduce(optimizations, state, fn opt, acc_state ->
+          apply_optimization(opt, acc_state)
+        end)
 
       {:ok, new_state}
     rescue
@@ -258,8 +260,10 @@ defmodule LivekitexAgent.Media.PerformanceOptimizer do
 
       Enum.each(pids_to_optimize, fn pid ->
         if pid && Process.alive?(pid) do
-          Process.flag(pid, :min_heap_size, 4096)  # Larger initial heap
-          Process.flag(pid, :min_bin_vheap_size, 4096)  # Larger binary heap
+          # Larger initial heap
+          Process.flag(pid, :min_heap_size, 4096)
+          # Larger binary heap
+          Process.flag(pid, :min_bin_vheap_size, 4096)
         end
       end)
 
@@ -376,26 +380,28 @@ defmodule LivekitexAgent.Media.PerformanceOptimizer do
     }
 
     # Collect audio processor metrics
-    audio_metrics = if state.audio_processor do
-      try do
-        AudioProcessor.get_latency_metrics()
-      rescue
-        _ -> %{audio_latency_ms: nil, error: :audio_processor_unavailable}
+    audio_metrics =
+      if state.audio_processor do
+        try do
+          AudioProcessor.get_latency_metrics()
+        rescue
+          _ -> %{audio_latency_ms: nil, error: :audio_processor_unavailable}
+        end
+      else
+        %{audio_latency_ms: nil, error: :no_audio_processor}
       end
-    else
-      %{audio_latency_ms: nil, error: :no_audio_processor}
-    end
 
     # Collect stream manager metrics
-    stream_metrics = if state.stream_manager do
-      try do
-        StreamManager.get_metrics(state.stream_manager)
-      rescue
-        _ -> %{stream_latency_ms: nil, error: :stream_manager_unavailable}
+    stream_metrics =
+      if state.stream_manager do
+        try do
+          StreamManager.get_metrics(state.stream_manager)
+        rescue
+          _ -> %{stream_latency_ms: nil, error: :stream_manager_unavailable}
+        end
+      else
+        %{stream_latency_ms: nil, error: :no_stream_manager}
       end
-    else
-      %{stream_latency_ms: nil, error: :no_stream_manager}
-    end
 
     # System metrics
     system_metrics = %{
@@ -430,24 +436,28 @@ defmodule LivekitexAgent.Media.PerformanceOptimizer do
     issues = []
 
     # Check audio latency
-    issues = case get_in(metrics, [:audio, :total_latency_ms]) do
-      nil -> issues
-      latency when latency > @critical_latency_ms -> [:critical_audio_latency | issues]
-      latency when latency > state.target_latency_ms -> [:high_audio_latency | issues]
-      _ -> issues
-    end
+    issues =
+      case get_in(metrics, [:audio, :total_latency_ms]) do
+        nil -> issues
+        latency when latency > @critical_latency_ms -> [:critical_audio_latency | issues]
+        latency when latency > state.target_latency_ms -> [:high_audio_latency | issues]
+        _ -> issues
+      end
 
     # Check memory usage
-    issues = case get_in(metrics, [:system, :memory_usage]) do
-      memory when memory > 1_000_000_000 -> [:high_memory_usage | issues] # 1GB
-      _ -> issues
-    end
+    issues =
+      case get_in(metrics, [:system, :memory_usage]) do
+        # 1GB
+        memory when memory > 1_000_000_000 -> [:high_memory_usage | issues]
+        _ -> issues
+      end
 
     # Check scheduler utilization
-    issues = case get_in(metrics, [:system, :scheduler_utilization]) do
-      util when util > 0.8 -> [:high_cpu_usage | issues]
-      _ -> issues
-    end
+    issues =
+      case get_in(metrics, [:system, :scheduler_utilization]) do
+        util when util > 0.8 -> [:high_cpu_usage | issues]
+        _ -> issues
+      end
 
     cond do
       Enum.any?(issues, &(&1 in [:critical_audio_latency])) ->
@@ -498,23 +508,26 @@ defmodule LivekitexAgent.Media.PerformanceOptimizer do
   defp determine_optimizations_for_issues(issues) do
     optimizations = []
 
-    optimizations = if :high_audio_latency in issues or :critical_audio_latency in issues do
-      [:reduce_buffer_sizes, :increase_process_priority | optimizations]
-    else
-      optimizations
-    end
+    optimizations =
+      if :high_audio_latency in issues or :critical_audio_latency in issues do
+        [:reduce_buffer_sizes, :increase_process_priority | optimizations]
+      else
+        optimizations
+      end
 
-    optimizations = if :high_memory_usage in issues do
-      [:optimize_gc_settings, :minimize_memory_allocation | optimizations]
-    else
-      optimizations
-    end
+    optimizations =
+      if :high_memory_usage in issues do
+        [:optimize_gc_settings, :minimize_memory_allocation | optimizations]
+      else
+        optimizations
+      end
 
-    optimizations = if :high_cpu_usage in issues do
-      [:increase_process_priority | optimizations]
-    else
-      optimizations
-    end
+    optimizations =
+      if :high_cpu_usage in issues do
+        [:increase_process_priority | optimizations]
+      else
+        optimizations
+      end
 
     Enum.uniq(optimizations)
   end

@@ -57,7 +57,8 @@ defmodule LivekitexAgent.InterruptionHandler do
 
   @type interruption_type :: :vad | :manual | :system | :preemptive
   @type interruption_strategy :: :immediate | :graceful | :fade_out | :smart
-  @type sensitivity_level :: float() # 0.0 - 1.0
+  # 0.0 - 1.0
+  @type sensitivity_level :: float()
 
   defstruct [
     :session_pid,
@@ -234,7 +235,10 @@ defmodule LivekitexAgent.InterruptionHandler do
           {:noreply, new_state}
 
         false ->
-          Logger.debug("VAD detected speech start - interruption not triggered (sensitivity/conditions)")
+          Logger.debug(
+            "VAD detected speech start - interruption not triggered (sensitivity/conditions)"
+          )
+
           {:noreply, state}
       end
     else
@@ -326,8 +330,17 @@ defmodule LivekitexAgent.InterruptionHandler do
     else
       {:error, reason} ->
         # Fallback to immediate interruption if graceful fails
-        Logger.warning("Graceful interruption failed: #{inspect(reason)}, falling back to immediate")
-        immediate_interruption(type, [], %{state | metrics: %{state.metrics | graceful_degradations: state.metrics.graceful_degradations + 1}})
+        Logger.warning(
+          "Graceful interruption failed: #{inspect(reason)}, falling back to immediate"
+        )
+
+        immediate_interruption(type, [], %{
+          state
+          | metrics: %{
+              state.metrics
+              | graceful_degradations: state.metrics.graceful_degradations + 1
+            }
+        })
 
       error ->
         {:error, error, state}
@@ -417,7 +430,8 @@ defmodule LivekitexAgent.InterruptionHandler do
 
   defp should_interrupt_on_vad(state) do
     # Determine if VAD event should trigger interruption
-    state.sensitivity > 0.3 # Configurable threshold
+    # Configurable threshold
+    state.sensitivity > 0.3
   end
 
   defp handle_speech_handle_event(:speech_interrupted, _data, state) do
@@ -436,28 +450,30 @@ defmodule LivekitexAgent.InterruptionHandler do
 
   defp apply_configuration(opts, state) do
     try do
-      new_state = Enum.reduce(opts, state, fn
-        {:interruption_strategy, strategy}, acc when strategy in [:immediate, :graceful, :fade_out, :smart] ->
-          %{acc | interruption_strategy: strategy}
+      new_state =
+        Enum.reduce(opts, state, fn
+          {:interruption_strategy, strategy}, acc
+          when strategy in [:immediate, :graceful, :fade_out, :smart] ->
+            %{acc | interruption_strategy: strategy}
 
-        {:sensitivity, sensitivity}, acc when sensitivity >= 0.0 and sensitivity <= 1.0 ->
-          %{acc | sensitivity: sensitivity}
+          {:sensitivity, sensitivity}, acc when sensitivity >= 0.0 and sensitivity <= 1.0 ->
+            %{acc | sensitivity: sensitivity}
 
-        {:interrupt_timeout_ms, timeout}, acc when is_integer(timeout) and timeout > 0 ->
-          %{acc | interrupt_timeout_ms: timeout}
+          {:interrupt_timeout_ms, timeout}, acc when is_integer(timeout) and timeout > 0 ->
+            %{acc | interrupt_timeout_ms: timeout}
 
-        {:enable_preemptive, enabled}, acc when is_boolean(enabled) ->
-          %{acc | enable_preemptive: enabled}
+          {:enable_preemptive, enabled}, acc when is_boolean(enabled) ->
+            %{acc | enable_preemptive: enabled}
 
-        {:enable_vad_interruption, enabled}, acc when is_boolean(enabled) ->
-          %{acc | enable_vad_interruption: enabled}
+          {:enable_vad_interruption, enabled}, acc when is_boolean(enabled) ->
+            %{acc | enable_vad_interruption: enabled}
 
-        {:grace_period_ms, period}, acc when is_integer(period) and period > 0 ->
-          %{acc | grace_period_ms: period}
+          {:grace_period_ms, period}, acc when is_integer(period) and period > 0 ->
+            %{acc | grace_period_ms: period}
 
-        {key, value}, _acc ->
-          throw({:invalid_config, key, value})
-      end)
+          {key, value}, _acc ->
+            throw({:invalid_config, key, value})
+        end)
 
       {:ok, new_state}
     catch
@@ -468,6 +484,7 @@ defmodule LivekitexAgent.InterruptionHandler do
 
   defp increment_interruption_count(state, type) do
     metrics = state.metrics
+
     updated_metrics = %{
       metrics
       | total_interruptions: metrics.total_interruptions + 1,
@@ -475,12 +492,20 @@ defmodule LivekitexAgent.InterruptionHandler do
     }
 
     # Increment type-specific counter
-    type_specific_metrics = case type do
-      :vad -> %{updated_metrics | vad_interruptions: updated_metrics.vad_interruptions + 1}
-      :manual -> %{updated_metrics | manual_interruptions: updated_metrics.manual_interruptions + 1}
-      :system -> %{updated_metrics | system_interruptions: updated_metrics.system_interruptions + 1}
-      _ -> updated_metrics
-    end
+    type_specific_metrics =
+      case type do
+        :vad ->
+          %{updated_metrics | vad_interruptions: updated_metrics.vad_interruptions + 1}
+
+        :manual ->
+          %{updated_metrics | manual_interruptions: updated_metrics.manual_interruptions + 1}
+
+        :system ->
+          %{updated_metrics | system_interruptions: updated_metrics.system_interruptions + 1}
+
+        _ ->
+          updated_metrics
+      end
 
     %{state | metrics: type_specific_metrics}
   end
@@ -490,11 +515,12 @@ defmodule LivekitexAgent.InterruptionHandler do
     current_avg = state.metrics.avg_interruption_latency_ms
     total_successful = state.metrics.successful_interruptions
 
-    new_avg = if total_successful > 1 do
-      ((current_avg * (total_successful - 1)) + latency) / total_successful
-    else
-      latency
-    end
+    new_avg =
+      if total_successful > 1 do
+        (current_avg * (total_successful - 1) + latency) / total_successful
+      else
+        latency
+      end
 
     updated_metrics = %{state.metrics | avg_interruption_latency_ms: new_avg}
     %{state | metrics: updated_metrics}
@@ -502,7 +528,12 @@ defmodule LivekitexAgent.InterruptionHandler do
 
   defp update_failure_metrics(state, type) do
     state = increment_interruption_count(state, type)
-    updated_metrics = %{state.metrics | failed_interruptions: state.metrics.failed_interruptions + 1}
+
+    updated_metrics = %{
+      state.metrics
+      | failed_interruptions: state.metrics.failed_interruptions + 1
+    }
+
     %{state | metrics: updated_metrics}
   end
 end

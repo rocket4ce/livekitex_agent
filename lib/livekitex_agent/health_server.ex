@@ -34,12 +34,12 @@ defmodule LivekitexAgent.HealthServer do
   @type health_status :: :healthy | :degraded | :unhealthy
 
   @type health_check :: %{
-    name: String.t(),
-    status: health_status(),
-    message: String.t(),
-    last_check: DateTime.t(),
-    duration_ms: non_neg_integer()
-  }
+          name: String.t(),
+          status: health_status(),
+          message: String.t(),
+          last_check: DateTime.t(),
+          duration_ms: non_neg_integer()
+        }
 
   ## Client API
 
@@ -153,9 +153,10 @@ defmodule LivekitexAgent.HealthServer do
     spawn(fn -> handle_http_request(socket, request, state) end)
     :inet.setopts(socket, active: :once)
 
-    new_state = %{state |
-      request_count: state.request_count + 1,
-      last_request: DateTime.utc_now()
+    new_state = %{
+      state
+      | request_count: state.request_count + 1,
+        last_request: DateTime.utc_now()
     }
 
     {:noreply, new_state}
@@ -178,6 +179,7 @@ defmodule LivekitexAgent.HealthServer do
     if state.socket do
       :gen_tcp.close(state.socket)
     end
+
     Logger.info("Health server terminating: #{inspect(reason)}")
     :ok
   end
@@ -218,13 +220,15 @@ defmodule LivekitexAgent.HealthServer do
 
   defp handle_http_request(socket, request_data, state) do
     # Parse HTTP request for better path detection
-    response = case parse_http_request(request_data) do
-      {:ok, method, path, _headers} ->
-        handle_endpoint(method, path, state)
-      {:error, _reason} ->
-        # Fallback to simple health check
-        handle_health_endpoint(state)
-    end
+    response =
+      case parse_http_request(request_data) do
+        {:ok, method, path, _headers} ->
+          handle_endpoint(method, path, state)
+
+        {:error, _reason} ->
+          # Fallback to simple health check
+          handle_health_endpoint(state)
+      end
 
     :gen_tcp.send(socket, response)
     :gen_tcp.close(socket)
@@ -236,9 +240,11 @@ defmodule LivekitexAgent.HealthServer do
         case String.split(request_line, " ", parts: 3) do
           [method, path, _version] ->
             {:ok, method, path, %{}}
+
           _ ->
             {:error, :invalid_request_line}
         end
+
       _ ->
         {:error, :no_request_line}
     end
@@ -258,7 +264,6 @@ defmodule LivekitexAgent.HealthServer do
       {"GET", "/jobs"} -> handle_jobs_endpoint(state)
       {"GET", "/config"} -> handle_config_endpoint(state)
       {"POST", "/health/check"} -> handle_manual_health_check(state)
-
       # Enhanced Dashboard Endpoints
       {"GET", "/dashboard/ui"} -> handle_dashboard_ui_endpoint(state)
       {"GET", "/dashboard/api/overview"} -> handle_dashboard_overview_api(state)
@@ -271,13 +276,11 @@ defmodule LivekitexAgent.HealthServer do
       {"GET", "/dashboard/api/alerts"} -> handle_dashboard_alerts_api(state)
       {"GET", "/dashboard/streaming/metrics"} -> handle_streaming_metrics_endpoint(state)
       {"GET", "/dashboard/streaming/logs"} -> handle_streaming_logs_endpoint(state)
-
       # Administrative endpoints
       {"POST", "/admin/scale"} -> handle_admin_scale_endpoint(state)
       {"POST", "/admin/restart"} -> handle_admin_restart_endpoint(state)
       {"POST", "/admin/drain"} -> handle_admin_drain_endpoint(state)
       {"GET", "/admin/backup"} -> handle_admin_backup_endpoint(state)
-
       _ -> handle_not_found()
     end
   end
@@ -596,12 +599,14 @@ defmodule LivekitexAgent.HealthServer do
     ]
 
     # Start streaming process (simplified - would need proper SSE implementation)
-    streaming_data = "data: " <> Jason.encode!(%{
-      timestamp: DateTime.utc_now(),
-      cpu: get_cpu_usage(),
-      memory: get_memory_usage(),
-      active_jobs: count_active_jobs()
-    }) <> "\n\n"
+    streaming_data =
+      "data: " <>
+        Jason.encode!(%{
+          timestamp: DateTime.utc_now(),
+          cpu: get_cpu_usage(),
+          memory: get_memory_usage(),
+          active_jobs: count_active_jobs()
+        }) <> "\n\n"
 
     build_http_response_with_headers(200, streaming_data, sse_headers)
   end
@@ -620,10 +625,13 @@ defmodule LivekitexAgent.HealthServer do
 
     # Stream recent logs (simplified implementation)
     recent_logs = get_recent_logs(10)
-    streaming_data = "data: " <> Jason.encode!(%{
-      timestamp: DateTime.utc_now(),
-      logs: recent_logs
-    }) <> "\n\n"
+
+    streaming_data =
+      "data: " <>
+        Jason.encode!(%{
+          timestamp: DateTime.utc_now(),
+          logs: recent_logs
+        }) <> "\n\n"
 
     build_http_response_with_headers(200, streaming_data, sse_headers)
   end
@@ -845,12 +853,13 @@ defmodule LivekitexAgent.HealthServer do
     memory = :erlang.memory()
     total = memory[:total]
     system = memory[:system]
-    round((system / total) * 100)
+    round(system / total * 100)
   end
 
   defp get_cpu_usage do
     # Simplified CPU usage (would need proper implementation)
-    :rand.uniform(20) + 10  # Mock value between 10-30%
+    # Mock value between 10-30%
+    :rand.uniform(20) + 10
   end
 
   defp get_load_average do
@@ -860,7 +869,9 @@ defmodule LivekitexAgent.HealthServer do
 
   defp count_active_workers do
     case Process.whereis(LivekitexAgent.WorkerManager) do
-      nil -> 0
+      nil ->
+        0
+
       _pid ->
         try do
           status = LivekitexAgent.WorkerManager.get_status()
@@ -873,7 +884,8 @@ defmodule LivekitexAgent.HealthServer do
 
   defp count_total_workers do
     # Would get from worker supervisor or configuration
-    4  # Default value
+    # Default value
+    4
   end
 
   defp calculate_worker_utilization do
@@ -884,7 +896,9 @@ defmodule LivekitexAgent.HealthServer do
 
   defp count_active_jobs do
     case Process.whereis(LivekitexAgent.WorkerManager) do
-      nil -> 0
+      nil ->
+        0
+
       _pid ->
         try do
           status = LivekitexAgent.WorkerManager.get_status()
@@ -897,7 +911,9 @@ defmodule LivekitexAgent.HealthServer do
 
   defp count_pending_jobs do
     case Process.whereis(LivekitexAgent.WorkerManager) do
-      nil -> 0
+      nil ->
+        0
+
       _pid ->
         try do
           status = LivekitexAgent.WorkerManager.get_status()
@@ -915,22 +931,26 @@ defmodule LivekitexAgent.HealthServer do
 
   defp calculate_success_rate do
     # Mock implementation - would calculate from real metrics
-    0.95 + (:rand.uniform() * 0.04)  # 95-99% success rate
+    # 95-99% success rate
+    0.95 + :rand.uniform() * 0.04
   end
 
   defp get_avg_response_time do
     # Mock implementation
-    :rand.uniform(500) + 100  # 100-600ms
+    # 100-600ms
+    :rand.uniform(500) + 100
   end
 
   defp get_requests_per_minute do
     # Mock implementation
-    :rand.uniform(50) + 20  # 20-70 requests per minute
+    # 20-70 requests per minute
+    :rand.uniform(50) + 20
   end
 
   defp get_error_rate do
     # Mock implementation
-    :rand.uniform() * 0.05  # 0-5% error rate
+    # 0-5% error rate
+    :rand.uniform() * 0.05
   end
 
   defp get_detailed_worker_info do
@@ -951,7 +971,8 @@ defmodule LivekitexAgent.HealthServer do
   defp get_scale_down_threshold, do: 0.3
 
   defp get_load_balancer_strategy do
-    "round_robin"  # Default strategy
+    # Default strategy
+    "round_robin"
   end
 
   defp get_load_distribution do
@@ -969,7 +990,8 @@ defmodule LivekitexAgent.HealthServer do
 
   defp get_recent_job_history(_limit), do: []
   defp get_job_type_statistics, do: %{}
-  defp get_avg_job_processing_time, do: 1200  # ms
+  # ms
+  defp get_avg_job_processing_time, do: 1200
   defp get_jobs_per_hour, do: 120
   defp get_peak_queue_size, do: 15
   defp get_recent_job_errors(_limit), do: []
@@ -1006,6 +1028,7 @@ defmodule LivekitexAgent.HealthServer do
 
   defp get_detailed_memory_info do
     memory = :erlang.memory()
+
     %{
       total: memory[:total],
       processes: memory[:processes],
@@ -1027,6 +1050,7 @@ defmodule LivekitexAgent.HealthServer do
   defp count_resolved_alerts_in_period(_hours), do: 0
 
   defp is_scaling_available, do: true
+
   defp calculate_estimated_drain_time do
     active_jobs = count_active_jobs()
     if active_jobs == 0, do: "0 seconds", else: "#{active_jobs * 30} seconds"
@@ -1036,12 +1060,13 @@ defmodule LivekitexAgent.HealthServer do
   defp estimate_backup_size, do: "50MB"
 
   defp build_http_response_with_headers(status_code, body, headers) do
-    status_text = case status_code do
-      200 -> "OK"
-      404 -> "Not Found"
-      503 -> "Service Unavailable"
-      _ -> "Unknown"
-    end
+    status_text =
+      case status_code do
+        200 -> "OK"
+        404 -> "Not Found"
+        503 -> "Service Unavailable"
+        _ -> "Unknown"
+      end
 
     header_lines = Enum.map(headers, fn {key, value} -> "#{key}: #{value}" end)
     header_string = Enum.join(header_lines, "\r\n")
@@ -1057,30 +1082,49 @@ defmodule LivekitexAgent.HealthServer do
 
   defp handle_not_found do
     available_endpoints = [
-      "/health", "/health/ready", "/health/live",
-      "/metrics", "/status", "/dashboard",
-      "/workers", "/jobs", "/config",
-      "/dashboard/ui", "/dashboard/api/overview", "/dashboard/api/workers",
-      "/dashboard/api/jobs", "/dashboard/api/metrics", "/dashboard/api/health",
-      "/dashboard/api/system", "/dashboard/api/logs", "/dashboard/api/alerts",
-      "/dashboard/streaming/metrics", "/dashboard/streaming/logs",
-      "/admin/scale", "/admin/restart", "/admin/drain", "/admin/backup"
+      "/health",
+      "/health/ready",
+      "/health/live",
+      "/metrics",
+      "/status",
+      "/dashboard",
+      "/workers",
+      "/jobs",
+      "/config",
+      "/dashboard/ui",
+      "/dashboard/api/overview",
+      "/dashboard/api/workers",
+      "/dashboard/api/jobs",
+      "/dashboard/api/metrics",
+      "/dashboard/api/health",
+      "/dashboard/api/system",
+      "/dashboard/api/logs",
+      "/dashboard/api/alerts",
+      "/dashboard/streaming/metrics",
+      "/dashboard/streaming/logs",
+      "/admin/scale",
+      "/admin/restart",
+      "/admin/drain",
+      "/admin/backup"
     ]
 
-    response_body = Jason.encode!(%{
-      error: "Not Found",
-      available_endpoints: available_endpoints
-    })
+    response_body =
+      Jason.encode!(%{
+        error: "Not Found",
+        available_endpoints: available_endpoints
+      })
+
     build_http_response(404, response_body, "application/json")
   end
 
   defp build_http_response(status_code, body, content_type) do
-    status_text = case status_code do
-      200 -> "OK"
-      404 -> "Not Found"
-      503 -> "Service Unavailable"
-      _ -> "Unknown"
-    end
+    status_text =
+      case status_code do
+        200 -> "OK"
+        404 -> "Not Found"
+        503 -> "Service Unavailable"
+        _ -> "Unknown"
+      end
 
     """
     HTTP/1.1 #{status_code} #{status_text}\r
@@ -1100,21 +1144,23 @@ defmodule LivekitexAgent.HealthServer do
 
     all_checks = Map.merge(default_checks, state.health_checks)
 
-    results = Enum.map(all_checks, fn {name, check_fun} ->
-      start_time = System.monotonic_time(:millisecond)
+    results =
+      Enum.map(all_checks, fn {name, check_fun} ->
+        start_time = System.monotonic_time(:millisecond)
 
-      result = try do
-        check_fun.()
-      rescue
-        e -> {:error, e.message}
-      catch
-        :exit, reason -> {:error, "Exit: #{inspect(reason)}"}
-      end
+        result =
+          try do
+            check_fun.()
+          rescue
+            e -> {:error, e.message}
+          catch
+            :exit, reason -> {:error, "Exit: #{inspect(reason)}"}
+          end
 
-      duration = System.monotonic_time(:millisecond) - start_time
+        duration = System.monotonic_time(:millisecond) - start_time
 
-      {name, format_health_check_result(result, duration)}
-    end)
+        {name, format_health_check_result(result, duration)}
+      end)
 
     checks = Enum.into(results, %{})
     overall_status = determine_overall_status(checks)
@@ -1140,7 +1186,8 @@ defmodule LivekitexAgent.HealthServer do
     memory_bytes = :erlang.memory(:total)
     memory_mb = div(memory_bytes, 1024 * 1024)
 
-    if memory_mb < 1000 do  # Under 1GB
+    # Under 1GB
+    if memory_mb < 1000 do
       {:ok, "Memory usage normal: #{memory_mb}MB"}
     else
       {:warning, "High memory usage: #{memory_mb}MB"}
@@ -1188,16 +1235,17 @@ defmodule LivekitexAgent.HealthServer do
       "process_count" => :erlang.system_info(:process_count)
     }
 
-    custom_metrics = Enum.reduce(state.metrics_collectors, %{}, fn {name, collector_fun}, acc ->
-      try do
-        metrics = collector_fun.()
-        Map.merge(acc, metrics)
-      rescue
-        e ->
-          Logger.error("Error collecting metrics from #{name}: #{inspect(e)}")
-          acc
-      end
-    end)
+    custom_metrics =
+      Enum.reduce(state.metrics_collectors, %{}, fn {name, collector_fun}, acc ->
+        try do
+          metrics = collector_fun.()
+          Map.merge(acc, metrics)
+        rescue
+          e ->
+            Logger.error("Error collecting metrics from #{name}: #{inspect(e)}")
+            acc
+        end
+      end)
 
     Map.merge(default_metrics, custom_metrics)
   end
@@ -1300,8 +1348,6 @@ defmodule LivekitexAgent.HealthServer do
       gc_stats: get_gc_stats()
     }
   end
-
-
 
   defp get_network_stats do
     %{
