@@ -54,12 +54,12 @@ defmodule LivekitexAgent.Agent do
           last_error: String.t() | nil
         }
 
-  @type state_transition :: 
-    {:created, :configured} | 
-    {:configured, :active} | 
-    {:active, :inactive} | 
-    {:inactive, :active} | 
-    {:configured, :inactive} | 
+  @type state_transition ::
+    {:created, :configured} |
+    {:configured, :active} |
+    {:active, :inactive} |
+    {:inactive, :active} |
+    {:configured, :inactive} |
     {atom(), :destroyed}
 
   @doc """
@@ -84,7 +84,7 @@ defmodule LivekitexAgent.Agent do
   """
   def new(opts \\ []) do
     now = DateTime.utc_now()
-    
+
     agent = %__MODULE__{
       agent_id: Keyword.get(opts, :agent_id, generate_id()),
       instructions: Keyword.get(opts, :instructions, ""),
@@ -204,7 +204,7 @@ defmodule LivekitexAgent.Agent do
       {:ok, new_agent} ->
         updated_agent = apply_configuration(new_agent, config)
         {:reply, :ok, updated_agent}
-      
+
       {:error, reason} ->
         {:reply, {:error, reason}, record_error(agent, reason)}
     end
@@ -216,7 +216,7 @@ defmodule LivekitexAgent.Agent do
       {:ok, new_agent} ->
         trigger_callback(new_agent, :activated)
         {:reply, :ok, new_agent}
-      
+
       {:error, reason} ->
         {:reply, {:error, reason}, record_error(agent, reason)}
     end
@@ -228,7 +228,7 @@ defmodule LivekitexAgent.Agent do
       {:ok, new_agent} ->
         trigger_callback(new_agent, :deactivated)
         {:reply, :ok, new_agent}
-      
+
       {:error, reason} ->
         {:reply, {:error, reason}, record_error(agent, reason)}
     end
@@ -244,7 +244,7 @@ defmodule LivekitexAgent.Agent do
           new_agent = %{agent | instructions: instructions, updated_at: DateTime.utc_now()}
           trigger_callback(new_agent, :instructions_updated)
           {:reply, :ok, new_agent}
-        
+
         {:error, reason} ->
           {:reply, {:error, reason}, record_error(agent, reason)}
       end
@@ -265,7 +265,7 @@ defmodule LivekitexAgent.Agent do
             trigger_callback(new_agent, :tool_added)
             {:reply, :ok, new_agent}
           end
-        
+
         {:error, reason} ->
           {:reply, {:error, reason}, record_error(agent, reason)}
       end
@@ -311,7 +311,7 @@ defmodule LivekitexAgent.Agent do
       {:ok, new_agent} ->
         trigger_callback(new_agent, :destroyed)
         {:stop, :normal, :ok, new_agent}
-      
+
       {:error, reason} ->
         {:reply, {:error, reason}, agent}
     end
@@ -341,10 +341,10 @@ defmodule LivekitexAgent.Agent do
     cond do
       is_nil(agent_id) or agent_id == "" ->
         {:error, :agent_id_required}
-      
+
       String.length(agent_id) > 255 ->
         {:error, :agent_id_too_long}
-      
+
       true ->
         :ok
     end
@@ -354,10 +354,10 @@ defmodule LivekitexAgent.Agent do
     cond do
       is_nil(instructions) or instructions == "" ->
         {:error, :instructions_required}
-      
+
       String.length(instructions) > 10_000 ->
         {:error, :instructions_too_long}
-      
+
       true ->
         :ok
     end
