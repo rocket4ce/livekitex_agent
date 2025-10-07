@@ -21,9 +21,9 @@ tests/
 Elixir ~> 1.12, OTP 24+: Follow standard conventions
 
 ## Recent Changes
+- 005-fix-phoenix-integration: Added Elixir ~> 1.12, OTP 24+ + livekitex ~> 0.1.34, websockex, httpoison, hackney, jason, timex
 - 004-fix-phoenix-integration: Added Elixir ~> 1.12, OTP 24+ + livekitex ~> 0.1.34, websockex, httpoison, hackney, jason, timex
 - 003-necesito-sacar-todos: Added Elixir ~> 1.12, OTP 24+ + livekitex ~> 0.1.34, websockex, httpoison, hackney, jason, timex
-- 002-crear-un-flow: Added Elixir ~> 1.12, OTP 24+ + livekitex ~> 0.1.34, websockex, httpoison, hackney, jason, timex
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
