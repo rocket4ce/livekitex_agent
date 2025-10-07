@@ -121,15 +121,15 @@
 
 ### Implementation for User Story 4
 
-- [ ] T045 [P] [US4] Implement Voice Activity Detection system in lib/livekitex_agent/media/vad.ex
-- [ ] T046 [P] [US4] Create speech handle for interruption control in lib/livekitex_agent/media/speech_handle.ex
-- [ ] T047 [P] [US4] Add audio buffering and synchronization in lib/livekitex_agent/media/stream_manager.ex
-- [ ] T048 [US4] Implement speech interruption handling with graceful degradation (depends on T045, T046)
-- [ ] T049 [US4] Add multi-modal support (audio + video + text) to AgentSession (depends on T047)
-- [ ] T050 [US4] Optimize audio processing pipeline for sub-100ms latency (depends on T020, T047)
-- [ ] T051 [US4] Add advanced WebRTC features through livekitex integration
-- [ ] T052 [US4] Create real-time performance monitoring and optimization
-- [ ] T053 [US4] Add examples for real-time voice interactions in examples/realtime_joke_teller.exs
+- [X] T045 [P] [US4] Implement Voice Activity Detection system in lib/livekitex_agent/media/vad.ex
+- [X] T046 [P] [US4] Create speech handle for interruption control in lib/livekitex_agent/media/speech_handle.ex
+- [X] T047 [P] [US4] Add audio buffering and synchronization in lib/livekitex_agent/media/stream_manager.ex
+- [X] T048 [US4] Implement speech interruption handling with graceful degradation (depends on T045, T046)
+- [X] T049 [US4] Add multi-modal support (audio + video + text) to AgentSession (depends on T047)
+- [X] T050 [US4] Optimize audio processing pipeline for sub-100ms latency (depends on T020, T047)
+- [X] T051 [US4] Add advanced WebRTC features through livekitex integration
+- [X] T052 [US4] Create real-time performance monitoring and optimization
+- [X] T053 [US4] Add examples for real-time voice interactions in examples/realtime_joke_teller.exs
 
 **Checkpoint**: Real-time capabilities should be fully functional with performance targets met
 
@@ -175,6 +175,11 @@
 - [ ] T074 Code cleanup and refactoring across all modules
 
 ---
+
+## Phase 9: Documentation & Examples
+**Purpose**: Ensure users can easily understand and use the library
+- [ ] T075 [P] Rewrite detailed README with setup and usage instructions
+- [ ] T076 [P] Create quickstart guide in docs/quickstart.md
 
 ## Dependencies & Execution Order
 
