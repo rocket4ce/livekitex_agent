@@ -5,6 +5,16 @@
 **Status**: Draft
 **Input**: User description: "al momento de agregar la libreria en un proyecto en phoenix 1.8.1 me sale el siguiente error ** (Mix) Could not start application livekitex_agent: LivekitexAgent.Application.start(:normal, []) returned an error: shutdown: failed to start child: LivekitexAgent.WorkerManager ** (EXIT) an exception was raised: ** (KeyError) key :worker_pool_size not found in: []"
 
+## Clarifications
+
+### Session 2025-10-07
+
+- Q: When invalid configuration values are provided (e.g., negative worker_pool_size), what should the system behavior be? → A: Fail immediately with clear error message and prevent application startup
+- Q: When the Phoenix application starts but the LiveKit server is unavailable, should the livekitex_agent application startup be affected? → A: Start successfully but log connection failures and retry periodically
+- Q: What should be the source of default configuration when no explicit config is provided? → A: Application environment config with hard-coded fallback defaults
+- Q: What minimum default values are needed for zero-config installation? → A: Worker pool size, basic entry point
+- Q: Should system require entry_point function or provide default for basic integration? → A: Auto-generate minimal entry_point from available examples
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Phoenix Developer Library Integration (Priority: P1)
@@ -54,19 +64,19 @@ A developer encounters configuration issues and receives clear error messages ex
 
 ### Edge Cases
 
-- What happens when Phoenix application starts but LiveKit server is not available?
-- How does system handle partial configuration (some options provided, others missing)?
+- When Phoenix application starts but LiveKit server is unavailable, livekitex_agent starts successfully, logs connection failures, and retries periodically
+- When partial configuration is provided (some options provided, others missing), system uses provided values and fills missing ones with hard-coded defaults including auto-generated entry_point
 - What occurs during application hot code reloading in development?
-- How does the system behave when worker_pool_size is set to zero or negative values?
+- When worker_pool_size is set to zero or negative values, system fails startup immediately with clear error message
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: System MUST start successfully in Phoenix 1.8.1 applications without requiring explicit worker configuration
-- **FR-002**: System MUST provide sensible default values for all required worker options when none are specified
-- **FR-003**: System MUST read configuration from Phoenix application config when available
-- **FR-004**: System MUST validate configuration values and provide clear error messages for invalid settings
+- **FR-002**: System MUST provide sensible hard-coded default values for all required worker options when none are specified, including auto-generated minimal entry_point from available examples
+- **FR-003**: System MUST read configuration from Phoenix application environment config (:livekitex_agent, :default_worker_options) when available, with fallback to hard-coded defaults
+- **FR-004**: System MUST validate configuration values and fail application startup immediately with clear error messages for invalid settings (e.g., negative worker_pool_size)
 - **FR-005**: System MUST maintain backward compatibility with existing configuration approaches
 - **FR-006**: System MUST handle missing configuration keys gracefully by using defaults
 - **FR-007**: System MUST integrate properly with Phoenix supervision tree lifecycle

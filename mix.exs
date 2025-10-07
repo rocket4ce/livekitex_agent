@@ -67,7 +67,11 @@ defmodule LivekitexAgent.MixProject do
       {:credo, "~> 1.7.12", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4.6", only: [:dev], runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
-      {:mox, "~> 1.2.0", only: :test}
+      {:mox, "~> 1.2.0", only: :test},
+
+      # Phoenix integration testing
+      {:phoenix, "~> 1.8.1", only: :test},
+      {:plug, "~> 1.15", only: :test}
     ]
   end
 
