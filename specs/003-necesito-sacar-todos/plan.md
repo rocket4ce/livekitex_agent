@@ -26,7 +26,6 @@ Eliminate all 57+ compilation warnings from the LivekitexAgent project to enable
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 ✅ **LiveKitEx Foundation**: Warning fixes will not alter livekitex ~> 0.1.34 dependency or core abstractions
-✅ **Python LiveKit Agent Parity**: Warning fixes are purely cosmetic and do not affect functional parity
 ✅ **Real-Time Audio/Video First**: No changes to WebSocket connections, PCM16 audio, or response time paths
 ✅ **Agent-Centric Architecture**: Agent abstraction, sessions, and function tools remain unchanged
 ✅ **OTP Supervision & Fault Tolerance**: Supervision trees and crash handling logic preserved
@@ -104,7 +103,6 @@ test/
 All constitution requirements remain satisfied after detailed design:
 
 ✅ **LiveKitEx Foundation**: No changes to livekitex dependency or abstractions - purely cosmetic fixes
-✅ **Python LiveKit Agent Parity**: Warning fixes do not affect functional compatibility
 ✅ **Real-Time Audio/Video First**: Performance constraints (<5% impact) ensure real-time capabilities preserved
 ✅ **Agent-Centric Architecture**: Core agent/session/tool abstractions untouched
 ✅ **OTP Supervision & Fault Tolerance**: Supervision trees and error handling logic maintained
